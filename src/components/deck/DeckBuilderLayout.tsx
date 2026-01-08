@@ -34,18 +34,20 @@ export function DeckBuilderLayout({
   const extraDeck = cards.filter((c) => c.section === 'extra');
   const sideDeck = cards.filter((c) => c.section === 'side');
 
-  // Auto-determine section based on card type
-  const determineSection = (card: YugiohCard): 'main' | 'extra' | 'side' => {
+  // Check if card is an Extra Deck monster (Fusion, Synchro, XYZ, Link)
+  const isExtraDeckMonster = (card: YugiohCard): boolean => {
     const type = card.type.toLowerCase();
-    if (
+    return (
       type.includes('fusion') ||
       type.includes('synchro') ||
       type.includes('xyz') ||
       type.includes('link')
-    ) {
-      return 'extra';
-    }
-    return 'main';
+    );
+  };
+
+  // Auto-determine section based on card type
+  const determineSection = (card: YugiohCard): 'main' | 'extra' | 'side' => {
+    return isExtraDeckMonster(card) ? 'extra' : 'main';
   };
 
   const handleDrop = (card: YugiohCard, section: 'main' | 'extra' | 'side') => {
