@@ -45,6 +45,22 @@ export default function DeckBuilder() {
       
       setCards(deckCards);
       sessionStorage.removeItem('importedDeck');
+      
+      // Check for not found cards
+      const notFoundRaw = sessionStorage.getItem('notFoundCardIds');
+      if (notFoundRaw) {
+        const notFoundIds = JSON.parse(notFoundRaw) as number[];
+        if (notFoundIds.length > 0) {
+          toast.warning(
+            `${notFoundIds.length} bài không tìm thấy trong database (có thể là bài pre-release)`,
+            {
+              description: `ID: ${notFoundIds.slice(0, 5).join(', ')}${notFoundIds.length > 5 ? '...' : ''}`,
+              duration: 10000,
+            }
+          );
+        }
+        sessionStorage.removeItem('notFoundCardIds');
+      }
     }
   }, [setCards]);
 

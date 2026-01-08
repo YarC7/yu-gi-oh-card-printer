@@ -29,7 +29,14 @@ export default function Index() {
 
       toast.success(`Đã tìm thấy ${allIds.length} lá bài, đang tải...`);
       
-      const cards = await getCardsByIds(allIds);
+      const { cards, notFoundIds } = await getCardsByIds(allIds);
+      
+      // Store not found IDs to show warning
+      if (notFoundIds.length > 0) {
+        sessionStorage.setItem('notFoundCardIds', JSON.stringify(notFoundIds));
+      } else {
+        sessionStorage.removeItem('notFoundCardIds');
+      }
       
       sessionStorage.setItem('importedDeck', JSON.stringify({ parsed, cards }));
       navigate('/deck-builder');

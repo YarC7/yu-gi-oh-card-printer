@@ -88,8 +88,13 @@ export async function getCardById(id: number): Promise<YugiohCard | null> {
   }
 }
 
-export async function getCardsByIds(ids: number[]): Promise<YugiohCard[]> {
-  if (ids.length === 0) return [];
+export interface GetCardsByIdsResult {
+  cards: YugiohCard[];
+  notFoundIds: number[];
+}
+
+export async function getCardsByIds(ids: number[]): Promise<GetCardsByIdsResult> {
+  if (ids.length === 0) return { cards: [], notFoundIds: [] };
   
   const uniqueIds = [...new Set(ids)];
   const batchSize = 50;
@@ -112,7 +117,11 @@ export async function getCardsByIds(ids: number[]): Promise<YugiohCard[]> {
     }
   }
   
-  return results;
+  // Find IDs that weren't found in the API
+  const foundIds = new Set(results.map(c => c.id));
+  const notFoundIds = uniqueIds.filter(id => !foundIds.has(id));
+  
+  return { cards: results, notFoundIds };
 }
 
 export async function getAllArchetypes(): Promise<string[]> {
