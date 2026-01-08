@@ -23,33 +23,49 @@ import {
 import { useNavigate } from "react-router-dom";
 import { ShoppingCart, ArrowRight } from "lucide-react";
 import { useBanList } from "@/hooks/useBanList";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 export default function Search() {
   const [cards, setCards] = useState<YugiohCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCard, setSelectedCard] = useState<YugiohCard | null>(null);
   const [selectedCards, setSelectedCards] = useState<YugiohCard[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [lastFilters, setLastFilters] = useState<Filters | null>(null);
   const navigate = useNavigate();
   const { format, setFormat } = useBanList();
 
-  const handleSearch = async (filters: Filters) => {
+  const handleSearch = async (filters: Filters, page: number = 1) => {
     setLoading(true);
     try {
       // Search both YGOPRODeck API and custom cards in parallel
       const [apiResults, customResults] = await Promise.all([
-        searchCards(filters),
+        searchCards(filters, page),
         searchCustomCards(filters.name),
       ]);
 
       // Merge results - custom cards first (they're pre-release/custom)
-      const allResults = [...customResults, ...apiResults];
+      const allResults = [...customResults, ...apiResults.cards];
       setCards(allResults);
+      setTotalCount(apiResults.totalCount + customResults.length);
+      setHasMore(apiResults.hasMore);
+      setLastFilters(filters);
+      setCurrentPage(page);
 
       if (allResults.length === 0) {
         toast.info("Không tìm thấy bài phù hợp");
       } else if (customResults.length > 0) {
         toast.success(
-          `Tìm thấy ${customResults.length} bài custom + ${apiResults.length} bài từ database`
+          `Tìm thấy ${customResults.length} bài custom + ${apiResults.cards.length} bài từ database`
         );
       }
     } catch (error) {
@@ -57,6 +73,20 @@ export default function Search() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    if (lastFilters) {
+      handleSearch(lastFilters, page);
+    }
+  };
+
+  const handleReset = () => {
+    setCards([]);
+    setCurrentPage(1);
+    setTotalCount(0);
+    setHasMore(false);
+    setLastFilters(null);
   };
 
   const handleAddCard = (card: YugiohCard) => {
@@ -142,7 +172,10 @@ export default function Search() {
             </div>
           </div>
 
-          <CardSearchFilters onSearch={handleSearch} loading={loading} />
+          <CardSearchFilters
+            onSearch={(filters) => handleSearch(filters, 1)}
+            loading={loading}
+          />
 
           <CardGrid
             cards={cards}
@@ -151,6 +184,65 @@ export default function Search() {
             onAddCard={handleAddCard}
             emptyMessage="Nhập tên bài hoặc sử dụng bộ lọc để tìm kiếm"
           />
+
+          {/* Pagination */}
+          {totalCount > 50 && (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Hiển thị {cards.length} / {totalCount} kết quả
+              </div>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        currentPage > 1 && handlePageChange(currentPage - 1)
+                      }
+                      className={
+                        currentPage <= 1
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+
+                  {/* Page numbers - show max 5 pages around current page */}
+                  {Array.from(
+                    { length: Math.min(5, Math.ceil(totalCount / 50)) },
+                    (_, i) => {
+                      const pageNum = Math.max(1, currentPage - 2) + i;
+                      if (pageNum > Math.ceil(totalCount / 50)) return null;
+
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink
+                            onClick={() => handlePageChange(pageNum)}
+                            isActive={pageNum === currentPage}
+                            className="cursor-pointer"
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+                  )}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        hasMore && handlePageChange(currentPage + 1)
+                      }
+                      className={
+                        !hasMore
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </div>
       </main>
 

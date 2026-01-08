@@ -11,6 +11,7 @@ import { Plus } from "lucide-react";
 import { BanStatusBadge } from "./BanStatusBadge";
 import { useBanList } from "@/hooks/useBanList";
 import { Link } from "react-router-dom";
+import { LazyImage } from "@/components/ui/lazy-image";
 
 interface CardDetailModalProps {
   card: YugiohCard | null;
@@ -35,14 +36,14 @@ export function CardDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">{card.name}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-[300px_1fr] gap-6">
+        <div className="grid md:grid-cols-[300px_1fr] lg:grid-cols-[400px_1fr] gap-6">
           <div>
-            <img
+            <LazyImage
               src={card.card_images[0]?.image_url}
               alt={card.name}
               className="w-full rounded-lg shadow-md"

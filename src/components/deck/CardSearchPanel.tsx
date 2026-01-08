@@ -1,16 +1,25 @@
-import { useState, useEffect, useRef } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { FilterMenu, CardFilterState, DEFAULT_FILTER_STATE } from '@/components/cards/FilterMenu';
-import { CardImage } from '@/components/cards/CardImage';
-import { searchCards } from '@/lib/ygoprodeck-api';
-import { searchCustomCards } from '@/lib/custom-cards-service';
-import { YugiohCard, CardSearchFilters as Filters } from '@/types/card';
-import { Search, Filter, RotateCcw, Loader2, X, GripVertical } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useState, useEffect, useRef } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  FilterMenu,
+  CardFilterState,
+  DEFAULT_FILTER_STATE,
+} from "@/components/cards/FilterMenu";
+import { VirtualizedCardGrid } from "@/components/cards/VirtualizedCardGrid";
+import { searchCards } from "@/lib/ygoprodeck-api";
+import { searchCustomCards } from "@/lib/custom-cards-service";
+import { YugiohCard, CardSearchFilters as Filters } from "@/types/card";
+import { Search, Filter, RotateCcw, Loader2, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CardSearchPanelProps {
   onCardClick?: (card: YugiohCard) => void;
@@ -28,38 +37,46 @@ function convertFiltersToAPI(state: CardFilterState, name?: string): Filters {
 
   if (state.cardTypes.length > 0) {
     const types = state.cardTypes;
-    if (types.includes('Spell')) {
-      filters.type = 'Spell Card';
-    } else if (types.includes('Trap')) {
-      filters.type = 'Trap Card';
-    } else if (types.includes('Link')) {
-      filters.type = 'Link Monster';
-    } else if (types.includes('Xyz')) {
-      filters.type = types.includes('Pendulum') ? 'XYZ Pendulum Effect Monster' : 'XYZ Monster';
-    } else if (types.includes('Synchro')) {
-      filters.type = types.includes('Pendulum') ? 'Synchro Pendulum Effect Monster' : 'Synchro Monster';
-    } else if (types.includes('Fusion')) {
-      filters.type = 'Fusion Monster';
-    } else if (types.includes('Ritual')) {
-      filters.type = types.includes('Effect') ? 'Ritual Effect Monster' : 'Ritual Monster';
-    } else if (types.includes('Pendulum')) {
-      filters.type = types.includes('Normal') ? 'Pendulum Normal Monster' : 'Pendulum Effect Monster';
-    } else if (types.includes('Normal')) {
-      filters.type = 'Normal Monster';
-    } else if (types.includes('Effect')) {
-      filters.type = 'Effect Monster';
+    if (types.includes("Spell")) {
+      filters.type = "Spell Card";
+    } else if (types.includes("Trap")) {
+      filters.type = "Trap Card";
+    } else if (types.includes("Link")) {
+      filters.type = "Link Monster";
+    } else if (types.includes("Xyz")) {
+      filters.type = types.includes("Pendulum")
+        ? "XYZ Pendulum Effect Monster"
+        : "XYZ Monster";
+    } else if (types.includes("Synchro")) {
+      filters.type = types.includes("Pendulum")
+        ? "Synchro Pendulum Effect Monster"
+        : "Synchro Monster";
+    } else if (types.includes("Fusion")) {
+      filters.type = "Fusion Monster";
+    } else if (types.includes("Ritual")) {
+      filters.type = types.includes("Effect")
+        ? "Ritual Effect Monster"
+        : "Ritual Monster";
+    } else if (types.includes("Pendulum")) {
+      filters.type = types.includes("Normal")
+        ? "Pendulum Normal Monster"
+        : "Pendulum Effect Monster";
+    } else if (types.includes("Normal")) {
+      filters.type = "Normal Monster";
+    } else if (types.includes("Effect")) {
+      filters.type = "Effect Monster";
     }
   }
 
   if (state.spellTrapTypes.length === 1) {
     const spellTrapType = state.spellTrapTypes[0];
-    const race = spellTrapType.replace(' Spell', '').replace(' Trap', '');
+    const race = spellTrapType.replace(" Spell", "").replace(" Trap", "");
     filters.race = race;
     if (!filters.type) {
-      if (spellTrapType.includes('Spell')) {
-        filters.type = 'Spell Card';
-      } else if (spellTrapType.includes('Trap')) {
-        filters.type = 'Trap Card';
+      if (spellTrapType.includes("Spell")) {
+        filters.type = "Spell Card";
+      } else if (spellTrapType.includes("Trap")) {
+        filters.type = "Trap Card";
       }
     }
   }
@@ -87,11 +104,16 @@ function convertFiltersToAPI(state: CardFilterState, name?: string): Filters {
   return filters;
 }
 
-export function CardSearchPanel({ onCardClick, onAddCard, className }: CardSearchPanelProps) {
+export function CardSearchPanel({
+  onCardClick,
+  onAddCard,
+  className,
+}: CardSearchPanelProps) {
   const [cards, setCards] = useState<YugiohCard[]>([]);
   const [loading, setLoading] = useState(false);
-  const [name, setName] = useState('');
-  const [filterState, setFilterState] = useState<CardFilterState>(DEFAULT_FILTER_STATE);
+  const [name, setName] = useState("");
+  const [filterState, setFilterState] =
+    useState<CardFilterState>(DEFAULT_FILTER_STATE);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -113,7 +135,7 @@ export function CardSearchPanel({ onCardClick, onAddCard, className }: CardSearc
       ]);
       setCards([...customResults, ...apiResults]);
     } catch (error) {
-      console.error('Search error:', error);
+      console.error("Search error:", error);
     } finally {
       setLoading(false);
     }
@@ -132,7 +154,7 @@ export function CardSearchPanel({ onCardClick, onAddCard, className }: CardSearc
       debounceRef.current = setTimeout(() => {
         const apiFilters = convertFiltersToAPI(filterState, name);
         handleSearch(apiFilters);
-      }, 400);
+      }, 300);
     }
 
     return () => {
@@ -143,18 +165,18 @@ export function CardSearchPanel({ onCardClick, onAddCard, className }: CardSearc
   }, [name, filterState, activeFilterCount]);
 
   const handleReset = () => {
-    setName('');
+    setName("");
     setFilterState(DEFAULT_FILTER_STATE);
     setCards([]);
   };
 
   const handleDragStart = (e: React.DragEvent, card: YugiohCard) => {
-    e.dataTransfer.setData('application/json', JSON.stringify(card));
-    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData("application/json", JSON.stringify(card));
+    e.dataTransfer.effectAllowed = "copy";
   };
 
   return (
-    <div className={cn('flex flex-col h-full', className)}>
+    <div className={cn("flex flex-col h-full", className)}>
       {/* Search Header */}
       <div className="space-y-2 pb-3 border-b">
         <div className="flex gap-2">
@@ -173,7 +195,11 @@ export function CardSearchPanel({ onCardClick, onAddCard, className }: CardSearc
 
           <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5 h-9 px-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-9 px-2.5"
+              >
                 <Filter className="h-4 w-4" />
                 {activeFilterCount > 0 && (
                   <Badge variant="secondary" className="h-4 px-1 text-xs">
@@ -198,7 +224,12 @@ export function CardSearchPanel({ onCardClick, onAddCard, className }: CardSearc
             </SheetContent>
           </Sheet>
 
-          <Button variant="outline" size="sm" className="h-9 px-2.5" onClick={handleReset}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 px-2.5"
+            onClick={handleReset}
+          >
             <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
@@ -239,33 +270,20 @@ export function CardSearchPanel({ onCardClick, onAddCard, className }: CardSearc
       </div>
 
       {/* Card Results */}
-      <ScrollArea className="flex-1 mt-3">
+      <div className="flex-1 mt-3">
         {cards.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
-            {loading ? 'Đang tìm kiếm...' : 'Nhập tên bài để tìm kiếm'}
+            {loading ? "Đang tìm kiếm..." : "Nhập tên bài để tìm kiếm"}
           </div>
         ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pr-3">
-            {cards.map((card) => (
-              <div
-                key={card.id}
-                className="relative group cursor-grab active:cursor-grabbing"
-                draggable
-                onDragStart={(e) => handleDragStart(e, card)}
-                onClick={() => onCardClick?.(card)}
-                onDoubleClick={() => onAddCard?.(card)}
-              >
-                <CardImage card={card} size="full" showHover />
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  <div className="bg-background/80 rounded-full p-1">
-                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <VirtualizedCardGrid
+            cards={cards}
+            onCardClick={onCardClick}
+            onAddCard={onAddCard}
+            className="pr-3"
+          />
         )}
-      </ScrollArea>
+      </div>
 
       <div className="pt-2 border-t text-xs text-muted-foreground text-center">
         Kéo thả hoặc double-click để thêm bài

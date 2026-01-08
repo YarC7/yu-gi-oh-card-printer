@@ -123,7 +123,7 @@ export default function Index() {
       <Header />
       
       {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center justify-center hero-gradient overflow-hidden">
+      <section className="relative min-h-[95vh] flex items-center justify-center hero-gradient overflow-hidden">
         {/* Infinite Scrolling Cards - Top Row */}
         <div className="absolute top-8 sm:top-12 left-0 right-0 overflow-hidden pointer-events-none">
           <motion.div

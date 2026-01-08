@@ -2,6 +2,102 @@ import { YugiohCard, CardSearchFilters, BanListInfo } from "@/types/card";
 
 const API_BASE = "https://db.ygoprodeck.com/api/v7";
 
+// API Client with caching, retry, and rate limiting
+class YGOProDeckAPIClient {
+  private cache = new Map<string, { data: unknown; timestamp: number }>();
+  private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly MAX_RETRIES = 3;
+  private readonly RETRY_DELAY = 1000; // 1 second
+  private readonly RATE_LIMIT_DELAY = 100; // 100ms between requests
+  private lastRequestTime = 0;
+
+  private async makeRequest(
+    url: string,
+    retries = this.MAX_RETRIES
+  ): Promise<unknown> {
+    // Rate limiting
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < this.RATE_LIMIT_DELAY) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.RATE_LIMIT_DELAY - timeSinceLastRequest)
+      );
+    }
+    this.lastRequestTime = Date.now();
+
+    // Check cache first
+    const cacheKey = url;
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      return cached.data;
+    }
+
+    try {
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          // Rate limited, wait longer and retry
+          if (retries > 0) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, this.RETRY_DELAY * 2)
+            );
+            return this.makeRequest(url, retries - 1);
+          }
+          throw new Error(`Rate limited: ${response.status}`);
+        }
+
+        if (response.status >= 500 && retries > 0) {
+          // Server error, retry with exponential backoff
+          await new Promise((resolve) =>
+            setTimeout(
+              resolve,
+              this.RETRY_DELAY * (this.MAX_RETRIES - retries + 1)
+            )
+          );
+          return this.makeRequest(url, retries - 1);
+        }
+
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Cache the result
+      this.cache.set(cacheKey, { data, timestamp: Date.now() });
+
+      return data;
+    } catch (error) {
+      if (retries > 0 && (error as Error).message.includes("fetch")) {
+        // Network error, retry
+        await new Promise((resolve) => setTimeout(resolve, this.RETRY_DELAY));
+        return this.makeRequest(url, retries - 1);
+      }
+      throw error;
+    }
+  }
+
+  async get(endpoint: string): Promise<unknown> {
+    const url = `${API_BASE}${endpoint}`;
+    return this.makeRequest(url);
+  }
+
+  // Clear cache method for manual cache invalidation
+  clearCache(): void {
+    this.cache.clear();
+  }
+
+  // Get cache stats
+  getCacheStats(): { size: number; entries: string[] } {
+    return {
+      size: this.cache.size,
+      entries: Array.from(this.cache.keys()),
+    };
+  }
+}
+
+const apiClient = new YGOProDeckAPIClient();
+
 interface BanlistCardData {
   id: number;
   banlist_info?: {
@@ -11,39 +107,88 @@ interface BanlistCardData {
   };
 }
 
+interface CardInfoResponse {
+  data: YugiohCard[];
+  meta?: {
+    total_rows: number;
+  };
+}
+
+interface BanListResponse {
+  data: BanlistCardData[];
+}
+
 export async function searchCards(
-  filters: CardSearchFilters
-): Promise<YugiohCard[]> {
+  filters: CardSearchFilters,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<{ cards: YugiohCard[]; totalCount: number; hasMore: boolean }> {
   const keyword = filters.name?.trim();
 
   // If we have a keyword, search both by name and description separately then merge
   if (keyword && keyword.length >= 2) {
-    const [nameResults, descResults] = await Promise.all([
-      searchByParams({ ...filters, searchType: "name" }),
-      searchByParams({ ...filters, searchType: "desc" }),
-    ]);
+    try {
+      // Try name search first (usually faster and more relevant)
+      const nameResults = await searchByParams(
+        {
+          ...filters,
+          searchType: "name",
+        },
+        page,
+        pageSize
+      );
 
-    // Merge and deduplicate results
-    const seen = new Set<number>();
-    const merged: YugiohCard[] = [];
-
-    for (const card of [...nameResults, ...descResults]) {
-      if (!seen.has(card.id)) {
-        seen.add(card.id);
-        merged.push(card);
+      // If we have enough results from name search, return them
+      if (nameResults.cards.length >= pageSize) {
+        return nameResults;
       }
-    }
 
-    return merged.slice(0, 100); // Limit to 100 results
+      // Otherwise, also search description but limit to avoid too many results
+      const descResults = await searchByParams(
+        {
+          ...filters,
+          searchType: "desc",
+          num: Math.max(1, pageSize - nameResults.cards.length), // Limit desc search to fill remaining slots
+        },
+        page,
+        pageSize
+      );
+
+      // Merge and deduplicate results
+      const seen = new Set<number>();
+      const merged: YugiohCard[] = [];
+
+      for (const card of [...nameResults.cards, ...descResults.cards]) {
+        if (!seen.has(card.id)) {
+          seen.add(card.id);
+          merged.push(card);
+        }
+      }
+
+      return {
+        cards: merged.slice(0, pageSize),
+        totalCount: Math.max(nameResults.totalCount, descResults.totalCount),
+        hasMore: nameResults.hasMore || descResults.hasMore,
+      };
+    } catch (error) {
+      // If parallel search fails, fall back to single search
+      console.warn(
+        "Parallel search failed, falling back to name search:",
+        error
+      );
+      return searchByParams({ ...filters, searchType: "name" }, page, pageSize);
+    }
   }
 
   // No keyword, just search with other filters
-  return searchByParams(filters);
+  return searchByParams(filters, page, pageSize);
 }
 
 async function searchByParams(
-  filters: CardSearchFilters & { searchType?: "name" | "desc" }
-): Promise<YugiohCard[]> {
+  filters: CardSearchFilters & { searchType?: "name" | "desc"; num?: number },
+  page: number = 1,
+  pageSize: number = 50
+): Promise<{ cards: YugiohCard[]; totalCount: number; hasMore: boolean }> {
   const params = new URLSearchParams();
 
   if (filters.name) {
@@ -68,34 +213,40 @@ async function searchByParams(
     params.append("def", `gte${filters.defMin}`);
   }
 
-  params.append("num", "50");
-  params.append("offset", "0");
+  const effectivePageSize = filters.num || pageSize;
+  const offset = (page - 1) * effectivePageSize;
+
+  params.append("num", effectivePageSize.toString());
+  params.append("offset", offset.toString());
 
   try {
-    const response = await fetch(
-      `${API_BASE}/cardinfo.php?${params.toString()}`
-    );
-    if (!response.ok) {
-      if (response.status === 400) {
-        return [];
-      }
-      return [];
-    }
-    const data = await response.json();
-    return data.data || [];
+    const data = (await apiClient.get(
+      `/cardinfo.php?${params.toString()}`
+    )) as CardInfoResponse;
+    const cards = data.data || [];
+    const totalCount = data.meta?.total_rows || cards.length;
+    const hasMore = offset + cards.length < totalCount;
+
+    return {
+      cards,
+      totalCount,
+      hasMore,
+    };
   } catch (error) {
     console.error("Error searching cards:", error);
-    return [];
+    return {
+      cards: [],
+      totalCount: 0,
+      hasMore: false,
+    };
   }
 }
 
 export async function getCardById(id: number): Promise<YugiohCard | null> {
   try {
-    const response = await fetch(`${API_BASE}/cardinfo.php?id=${id}`);
-    if (!response.ok) {
-      return null;
-    }
-    const data = await response.json();
+    const data = (await apiClient.get(
+      `/cardinfo.php?id=${id}`
+    )) as CardInfoResponse;
     return data.data?.[0] || null;
   } catch (error) {
     console.error("Error fetching card:", error);
@@ -122,12 +273,11 @@ export async function getCardsByIds(
     const idsParam = batch.join(",");
 
     try {
-      const response = await fetch(`${API_BASE}/cardinfo.php?id=${idsParam}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.data) {
-          results.push(...data.data);
-        }
+      const data = (await apiClient.get(
+        `/cardinfo.php?id=${idsParam}`
+      )) as CardInfoResponse;
+      if (data.data) {
+        results.push(...data.data);
       }
     } catch (error) {
       console.error("Error fetching cards batch:", error);
@@ -144,20 +294,9 @@ export async function getCardsByIds(
 export async function getBanList(): Promise<BanListInfo[]> {
   try {
     // Fetch both TCG and OCG ban lists
-    const [tcgResponse, ocgResponse] = await Promise.all([
-      fetch(`${API_BASE}/cardinfo.php?banlist=tcg`),
-      fetch(`${API_BASE}/cardinfo.php?banlist=ocg`),
-    ]);
-
-    if (!tcgResponse.ok || !ocgResponse.ok) {
-      throw new Error(
-        `HTTP error! TCG: ${tcgResponse.status}, OCG: ${ocgResponse.status}`
-      );
-    }
-
     const [tcgData, ocgData] = await Promise.all([
-      tcgResponse.json(),
-      ocgResponse.json(),
+      apiClient.get("/cardinfo.php?banlist=tcg") as Promise<BanListResponse>,
+      apiClient.get("/cardinfo.php?banlist=ocg") as Promise<BanListResponse>,
     ]);
 
     const banListMap = new Map<number, BanListInfo>();
@@ -209,12 +348,16 @@ function normalizeBanStatus(
   return status as "Forbidden" | "Limited" | "Semi-Limited";
 }
 
+interface ArchetypeResponse {
+  archetype_name: string;
+}
+
 export async function getAllArchetypes(): Promise<string[]> {
   try {
-    const response = await fetch(`${API_BASE}/archetypes.php`);
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.map((a: { archetype_name: string }) => a.archetype_name);
+    const data = (await apiClient.get(
+      "/archetypes.php"
+    )) as ArchetypeResponse[];
+    return data.map((a) => a.archetype_name);
   } catch (error) {
     console.error("Error fetching archetypes:", error);
     return [];
@@ -294,3 +437,6 @@ export const SPELL_RACES = [
 ];
 
 export const TRAP_RACES = ["Normal", "Continuous", "Counter"];
+
+// Export the API client for advanced usage
+export { apiClient };

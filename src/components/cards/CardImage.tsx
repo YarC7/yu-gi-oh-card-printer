@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { YugiohCard } from "@/types/card";
 import { cn } from "@/lib/utils";
 import { ImageOff } from "lucide-react";
 import { BanStatusBadge } from "./BanStatusBadge";
 import { useBanList } from "@/hooks/useBanList";
+import { LazyImage } from "@/components/ui/lazy-image";
 
 interface CardImageProps {
   card: YugiohCard;
@@ -20,7 +21,7 @@ const sizeClasses = {
   full: "w-full h-auto",
 };
 
-export function CardImage({
+export const CardImage = memo<CardImageProps>(function CardImage({
   card,
   size = "md",
   className,
@@ -28,12 +29,31 @@ export function CardImage({
   onClick,
 }: CardImageProps) {
   const [imageError, setImageError] = useState(false);
-  const [loading, setLoading] = useState(true);
   const { getBanStatus, loading: banListLoading } = useBanList();
 
   const imageUrl =
     card.card_images?.[0]?.image_url_small || card.card_images?.[0]?.image_url;
   const banStatus = banListLoading ? null : getBanStatus(card.id);
+
+  if (imageError) {
+    return (
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-md bg-muted aspect-[59/86] flex flex-col items-center justify-center gap-1 text-muted-foreground",
+          sizeClasses[size],
+          showHover &&
+            "cursor-pointer transition-transform hover:scale-105 hover:shadow-lg",
+          className
+        )}
+        onClick={onClick}
+      >
+        <ImageOff className="h-6 w-6" />
+        <span className="text-xs text-center px-1 line-clamp-2">
+          {card.name}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -55,33 +75,12 @@ export function CardImage({
         </div>
       )}
 
-      {loading && !imageError && (
-        <div className="absolute inset-0 bg-muted animate-pulse" />
-      )}
-
-      {imageError ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground">
-          <ImageOff className="h-6 w-6" />
-          <span className="text-xs text-center px-1 line-clamp-2">
-            {card.name}
-          </span>
-        </div>
-      ) : (
-        <img
-          src={imageUrl}
-          alt={card.name}
-          className={cn(
-            "w-full h-full object-cover transition-opacity",
-            loading ? "opacity-0" : "opacity-100"
-          )}
-          onLoad={() => setLoading(false)}
-          onError={() => {
-            setImageError(true);
-            setLoading(false);
-          }}
-          loading="lazy"
-        />
-      )}
+      <LazyImage
+        src={imageUrl}
+        alt={card.name}
+        className="w-full h-full object-cover"
+        onError={() => setImageError(true)}
+      />
     </div>
   );
-}
+});

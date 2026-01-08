@@ -1,8 +1,9 @@
-import { YugiohCard } from '@/types/card';
-import { CardImage } from './CardImage';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { memo } from "react";
+import { YugiohCard } from "@/types/card";
+import { CardImage } from "./CardImage";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CardGridProps {
   cards: YugiohCard[];
@@ -13,17 +14,22 @@ interface CardGridProps {
   className?: string;
 }
 
-export function CardGrid({ 
-  cards, 
-  onCardClick, 
+export const CardGrid = memo<CardGridProps>(function CardGrid({
+  cards,
+  onCardClick,
   onAddCard,
-  loading, 
-  emptyMessage = 'Không tìm thấy bài nào',
-  className 
-}: CardGridProps) {
+  loading,
+  emptyMessage = "Không tìm thấy bài nào",
+  className,
+}) {
   if (loading) {
     return (
-      <div className={cn('grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2', className)}>
+      <div
+        className={cn(
+          "grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2",
+          className
+        )}
+      >
         {Array.from({ length: 16 }).map((_, i) => (
           <div
             key={i}
@@ -43,7 +49,12 @@ export function CardGrid({
   }
 
   return (
-    <div className={cn('grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2', className)}>
+    <div
+      className={cn(
+        "grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2",
+        className
+      )}
+    >
       {cards.map((card) => (
         <div key={card.id} className="relative group">
           <CardImage
@@ -69,4 +80,4 @@ export function CardGrid({
       ))}
     </div>
   );
-}
+});

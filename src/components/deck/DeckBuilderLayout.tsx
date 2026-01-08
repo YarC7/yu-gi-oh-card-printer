@@ -81,7 +81,7 @@ export function DeckBuilderLayout({
   };
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-[1fr_340px] gap-4 flex-1 min-h-0">
+    <div className="flex flex-col lg:grid lg:grid-cols-[1fr_480px] gap-4 flex-1 min-h-0">
       {/* Left: Deck Sections */}
       <div className="flex flex-col gap-3 overflow-auto min-h-0">
         <DeckSection
