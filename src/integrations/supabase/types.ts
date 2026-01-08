@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      custom_cards: {
+        Row: {
+          archetype: string | null
+          atk: number | null
+          attribute: string | null
+          created_at: string
+          def: number | null
+          description: string | null
+          frame_type: string
+          id: string
+          image_url: string | null
+          level: number | null
+          link_val: number | null
+          name: string
+          race: string | null
+          scale: number | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archetype?: string | null
+          atk?: number | null
+          attribute?: string | null
+          created_at?: string
+          def?: number | null
+          description?: string | null
+          frame_type?: string
+          id?: string
+          image_url?: string | null
+          level?: number | null
+          link_val?: number | null
+          name: string
+          race?: string | null
+          scale?: number | null
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archetype?: string | null
+          atk?: number | null
+          attribute?: string | null
+          created_at?: string
+          def?: number | null
+          description?: string | null
+          frame_type?: string
+          id?: string
+          image_url?: string | null
+          level?: number | null
+          link_val?: number | null
+          name?: string
+          race?: string | null
+          scale?: number | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       generation_history: {
         Row: {
           card_count: number
