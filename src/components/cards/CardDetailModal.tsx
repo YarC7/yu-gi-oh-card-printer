@@ -8,6 +8,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
+import { BanStatusBadge } from './BanStatusBadge';
+import { useBanList } from '@/hooks/useBanList';
 
 interface CardDetailModalProps {
   card: YugiohCard | null;
@@ -17,11 +19,14 @@ interface CardDetailModalProps {
 }
 
 export function CardDetailModal({ card, open, onOpenChange, onAddCard }: CardDetailModalProps) {
+  const { getBanStatus } = useBanList();
+
   if (!card) return null;
 
   const isMonster = card.type.toLowerCase().includes('monster');
   const isLink = card.type.toLowerCase().includes('link');
   const isPendulum = card.type.toLowerCase().includes('pendulum');
+  const banStatus = getBanStatus(card.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,6 +63,7 @@ export function CardDetailModal({ card, open, onOpenChange, onAddCard }: CardDet
               {card.archetype && (
                 <Badge>{card.archetype}</Badge>
               )}
+              <BanStatusBadge banStatus={banStatus} />
             </div>
 
             {isMonster && (

@@ -1,4 +1,4 @@
-import { YugiohCard, CardSearchFilters } from '@/types/card';
+import { YugiohCard, CardSearchFilters, BanListInfo } from '@/types/card';
 
 const API_BASE = 'https://db.ygoprodeck.com/api/v7';
 
@@ -122,6 +122,36 @@ export async function getCardsByIds(ids: number[]): Promise<GetCardsByIdsResult>
   const notFoundIds = uniqueIds.filter(id => !foundIds.has(id));
   
   return { cards: results, notFoundIds };
+}
+
+export async function getBanList(): Promise<BanListInfo[]> {
+  try {
+    const response = await fetch(`${API_BASE}/cardinfo.php?banlist=tcg`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Transform the API response to our BanListInfo format
+    const banList: BanListInfo[] = [];
+    
+    data.data.forEach((card: any) => {
+      if (card.banlist_info) {
+        banList.push({
+          cardId: card.id,
+          ban_tcg: card.banlist_info.ban_tcg,
+          ban_ocg: card.banlist_info.ban_ocg,
+          ban_goat: card.banlist_info.ban_goat,
+        });
+      }
+    });
+    
+    return banList;
+  } catch (error) {
+    console.error('Error fetching ban list:', error);
+    return [];
+  }
 }
 
 export async function getAllArchetypes(): Promise<string[]> {

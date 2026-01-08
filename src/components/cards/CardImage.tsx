@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { YugiohCard } from '@/types/card';
 import { cn } from '@/lib/utils';
 import { ImageOff } from 'lucide-react';
+import { BanStatusBadge } from './BanStatusBadge';
+import { useBanList } from '@/hooks/useBanList';
 
 interface CardImageProps {
   card: YugiohCard;
@@ -21,8 +23,10 @@ const sizeClasses = {
 export function CardImage({ card, size = 'md', className, showHover = false, onClick }: CardImageProps) {
   const [imageError, setImageError] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { getBanStatus } = useBanList();
 
   const imageUrl = card.card_images?.[0]?.image_url_small || card.card_images?.[0]?.image_url;
+  const banStatus = getBanStatus(card.id);
 
   return (
     <div
@@ -34,6 +38,12 @@ export function CardImage({ card, size = 'md', className, showHover = false, onC
       )}
       onClick={onClick}
     >
+      {banStatus && (
+        <div className="absolute top-1 right-1 z-10">
+          <BanStatusBadge banStatus={banStatus} />
+        </div>
+      )}
+      
       {loading && !imageError && (
         <div className="absolute inset-0 bg-muted animate-pulse" />
       )}

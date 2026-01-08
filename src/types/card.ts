@@ -41,6 +41,15 @@ export interface CardPrice {
   coolstuffinc_price: string;
 }
 
+export interface BanListInfo {
+  cardId: number;
+  ban_tcg?: 'Banned' | 'Limited' | 'Semi-Limited';
+  ban_ocg?: 'Banned' | 'Limited' | 'Semi-Limited';
+  ban_goat?: 'Banned' | 'Limited' | 'Semi-Limited';
+}
+
+
+
 export interface DeckCard {
   card: YugiohCard;
   quantity: number;
