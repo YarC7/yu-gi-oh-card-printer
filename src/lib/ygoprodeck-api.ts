@@ -3,34 +3,56 @@ import { YugiohCard, CardSearchFilters } from '@/types/card';
 const API_BASE = 'https://db.ygoprodeck.com/api/v7';
 
 export async function searchCards(filters: CardSearchFilters): Promise<YugiohCard[]> {
+  const keyword = filters.name?.trim();
+  
+  // If we have a keyword, search both by name and description separately then merge
+  if (keyword && keyword.length >= 2) {
+    const [nameResults, descResults] = await Promise.all([
+      searchByParams({ ...filters, searchType: 'name' }),
+      searchByParams({ ...filters, searchType: 'desc' }),
+    ]);
+    
+    // Merge and deduplicate results
+    const seen = new Set<number>();
+    const merged: YugiohCard[] = [];
+    
+    for (const card of [...nameResults, ...descResults]) {
+      if (!seen.has(card.id)) {
+        seen.add(card.id);
+        merged.push(card);
+      }
+    }
+    
+    return merged.slice(0, 100); // Limit to 100 results
+  }
+  
+  // No keyword, just search with other filters
+  return searchByParams(filters);
+}
+
+async function searchByParams(filters: CardSearchFilters & { searchType?: 'name' | 'desc' }): Promise<YugiohCard[]> {
   const params = new URLSearchParams();
   
-  // Search by name OR description using fname for partial name match
   if (filters.name) {
-    params.append('fname', filters.name);
-    // Also search in description for broader results
-    params.append('desc', filters.name);
+    if (filters.searchType === 'desc') {
+      params.append('desc', filters.name);
+    } else {
+      params.append('fname', filters.name);
+    }
   }
+  
   if (filters.type) params.append('type', filters.type);
   if (filters.attribute) params.append('attribute', filters.attribute);
   if (filters.race) params.append('race', filters.race);
   if (filters.level) params.append('level', filters.level.toString());
   if (filters.archetype) params.append('archetype', filters.archetype);
   
-  if (filters.atkMin !== undefined || filters.atkMax !== undefined) {
-    if (filters.atkMin !== undefined && filters.atkMax !== undefined) {
-      params.append('atk', `gte${filters.atkMin}`);
-    } else if (filters.atkMin !== undefined) {
-      params.append('atk', `gte${filters.atkMin}`);
-    } else if (filters.atkMax !== undefined) {
-      params.append('atk', `lte${filters.atkMax}`);
-    }
+  if (filters.atkMin !== undefined) {
+    params.append('atk', `gte${filters.atkMin}`);
   }
   
-  if (filters.defMin !== undefined || filters.defMax !== undefined) {
-    if (filters.defMin !== undefined) {
-      params.append('def', `gte${filters.defMin}`);
-    }
+  if (filters.defMin !== undefined) {
+    params.append('def', `gte${filters.defMin}`);
   }
   
   params.append('num', '50');
@@ -42,7 +64,7 @@ export async function searchCards(filters: CardSearchFilters): Promise<YugiohCar
       if (response.status === 400) {
         return [];
       }
-      throw new Error('Failed to fetch cards');
+      return [];
     }
     const data = await response.json();
     return data.data || [];

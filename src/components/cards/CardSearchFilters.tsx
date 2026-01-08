@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/accordion';
 import { CardSearchFilters as Filters } from '@/types/card';
 import { CARD_TYPES, CARD_ATTRIBUTES, MONSTER_RACES } from '@/lib/ygoprodeck-api';
-import { Search, RotateCcw } from 'lucide-react';
+import { Search, RotateCcw, Loader2 } from 'lucide-react';
 
 interface CardSearchFiltersProps {
   onSearch: (filters: Filters) => void;
@@ -26,10 +26,30 @@ interface CardSearchFiltersProps {
 
 export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps) {
   const [filters, setFilters] = useState<Filters>({});
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleSearch = () => {
-    onSearch(filters);
-  };
+  // Debounced search on filter change
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    // Only auto-search if we have a name with 2+ chars or other filters
+    const hasNameFilter = filters.name && filters.name.length >= 2;
+    const hasOtherFilters = filters.type || filters.attribute || filters.race || filters.level;
+    
+    if (hasNameFilter || hasOtherFilters) {
+      debounceRef.current = setTimeout(() => {
+        onSearch(filters);
+      }, 400);
+    }
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [filters, onSearch]);
 
   const handleReset = () => {
     setFilters({});
@@ -42,19 +62,18 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
-        <div className="flex-1">
+        <div className="flex-1 relative">
           <Input
-            placeholder="Tên bài..."
+            placeholder="Tìm theo tên hoặc mô tả bài..."
             value={filters.name || ''}
             onChange={(e) => updateFilter('name', e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            className="pr-10"
           />
+          {loading && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
-        <Button onClick={handleSearch} disabled={loading}>
-          <Search className="h-4 w-4 mr-2" />
-          Tìm
-        </Button>
-        <Button variant="outline" onClick={handleReset}>
+        <Button variant="outline" onClick={handleReset} disabled={loading}>
           <RotateCcw className="h-4 w-4" />
         </Button>
       </div>
