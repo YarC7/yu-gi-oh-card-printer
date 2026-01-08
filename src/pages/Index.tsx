@@ -19,14 +19,26 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-// Featured card images from YGOProDeck
+// Featured card images from YGOProDeck - Many iconic cards
 const FEATURED_CARDS = [
   'https://images.ygoprodeck.com/images/cards/46986414.jpg', // Dark Magician
   'https://images.ygoprodeck.com/images/cards/89631139.jpg', // Blue-Eyes White Dragon
-  'https://images.ygoprodeck.com/images/cards/70902743.jpg', // Exodia
+  'https://images.ygoprodeck.com/images/cards/70902743.jpg', // Exodia Head
   'https://images.ygoprodeck.com/images/cards/74677422.jpg', // Red-Eyes Black Dragon
   'https://images.ygoprodeck.com/images/cards/6007213.jpg',  // Slifer
   'https://images.ygoprodeck.com/images/cards/10000000.jpg', // Obelisk
+  'https://images.ygoprodeck.com/images/cards/10000020.jpg', // Ra
+  'https://images.ygoprodeck.com/images/cards/27551.jpg',    // Stardust Dragon
+  'https://images.ygoprodeck.com/images/cards/44508094.jpg', // Dark Magician Girl
+  'https://images.ygoprodeck.com/images/cards/38033121.jpg', // Dark Armed Dragon
+  'https://images.ygoprodeck.com/images/cards/83764719.jpg', // Monster Reborn
+  'https://images.ygoprodeck.com/images/cards/5318639.jpg',  // Pot of Greed
+  'https://images.ygoprodeck.com/images/cards/53129443.jpg', // Ash Blossom
+  'https://images.ygoprodeck.com/images/cards/24224830.jpg', // Called by the Grave
+  'https://images.ygoprodeck.com/images/cards/97268402.jpg', // Effect Veiler
+  'https://images.ygoprodeck.com/images/cards/65192027.jpg', // Maxx C
+  'https://images.ygoprodeck.com/images/cards/73289035.jpg', // Accesscode Talker
+  'https://images.ygoprodeck.com/images/cards/21844576.jpg', // Apollousa
 ];
 
 const FEATURES = [
@@ -112,35 +124,66 @@ export default function Index() {
       
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex items-center justify-center hero-gradient overflow-hidden">
-        {/* Floating Cards Background */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {FEATURED_CARDS.map((src, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-20 sm:w-28 md:w-32 opacity-20 dark:opacity-10"
-              initial={{ 
-                x: `${15 + (i % 3) * 30}%`,
-                y: `${10 + Math.floor(i / 3) * 40}%`,
-                rotate: -15 + i * 6 
-              }}
-              animate={{ 
-                y: [`${10 + Math.floor(i / 3) * 40}%`, `${15 + Math.floor(i / 3) * 40}%`, `${10 + Math.floor(i / 3) * 40}%`],
-                rotate: [-15 + i * 6, -10 + i * 6, -15 + i * 6]
-              }}
-              transition={{ 
-                duration: 4 + i * 0.5, 
-                repeat: Infinity, 
-                ease: "easeInOut" 
-              }}
-            >
-              <img 
-                src={src} 
-                alt="" 
-                className="w-full rounded-lg shadow-2xl"
-                loading="lazy"
-              />
-            </motion.div>
-          ))}
+        {/* Infinite Scrolling Cards - Top Row */}
+        <div className="absolute top-8 sm:top-12 left-0 right-0 overflow-hidden pointer-events-none">
+          <motion.div
+            className="flex gap-4 sm:gap-6"
+            animate={{ x: [0, -2400] }}
+            transition={{
+              x: {
+                duration: 40,
+                repeat: Infinity,
+                ease: "linear",
+              },
+            }}
+            style={{ width: 'fit-content' }}
+          >
+            {/* Double the cards for seamless loop */}
+            {[...FEATURED_CARDS, ...FEATURED_CARDS].map((src, i) => (
+              <div
+                key={i}
+                className="flex-shrink-0 w-20 sm:w-24 md:w-28 opacity-30 dark:opacity-20 hover:opacity-60 transition-opacity"
+              >
+                <img 
+                  src={src} 
+                  alt="" 
+                  className="w-full rounded-lg shadow-xl"
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </motion.div>
+        </div>
+
+        {/* Infinite Scrolling Cards - Bottom Row (Reverse) */}
+        <div className="absolute bottom-8 sm:bottom-12 left-0 right-0 overflow-hidden pointer-events-none">
+          <motion.div
+            className="flex gap-4 sm:gap-6"
+            animate={{ x: [-2400, 0] }}
+            transition={{
+              x: {
+                duration: 45,
+                repeat: Infinity,
+                ease: "linear",
+              },
+            }}
+            style={{ width: 'fit-content' }}
+          >
+            {/* Double the cards for seamless loop - reversed order */}
+            {[...FEATURED_CARDS.slice().reverse(), ...FEATURED_CARDS.slice().reverse()].map((src, i) => (
+              <div
+                key={i}
+                className="flex-shrink-0 w-20 sm:w-24 md:w-28 opacity-30 dark:opacity-20 hover:opacity-60 transition-opacity"
+              >
+                <img 
+                  src={src} 
+                  alt="" 
+                  className="w-full rounded-lg shadow-xl"
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </motion.div>
         </div>
 
         {/* Hero Content */}
