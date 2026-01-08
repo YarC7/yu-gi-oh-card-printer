@@ -21,7 +21,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const navItems = [
-  { path: '/', label: 'Trang chủ', icon: Upload },
   { path: '/search', label: 'Tìm bài', icon: Search },
   { path: '/deck-builder', label: 'Deck Builder', icon: FileText },
   { path: '/history', label: 'Lịch sử', icon: History },
