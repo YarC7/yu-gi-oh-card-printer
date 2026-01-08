@@ -116,6 +116,7 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
     try {
       const cardType = getCardType();
@@ -148,6 +149,7 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
       console.error(error);
       toast.error('Có lỗi khi lưu bài');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -174,13 +176,17 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
 
   // Prevent closing dialog while saving
   const handleOpenChange = (newOpen: boolean) => {
-    if (saving) return; // Don't close while saving
+    if (savingRef.current) return;
     onOpenChange(newOpen);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onPointerDownOutside={(e) => saving && e.preventDefault()}>
+      <DialogContent
+        className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        onPointerDownOutside={(e) => savingRef.current && e.preventDefault()}
+        onEscapeKeyDown={(e) => savingRef.current && e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Thêm bài Pre-release / Custom</DialogTitle>
         </DialogHeader>
@@ -333,7 +339,7 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
           <Button variant="outline" onClick={resetForm} disabled={saving}>
             Reset
           </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={saving}>
             Huỷ
           </Button>
           <Button onClick={handleSubmit} disabled={saving || !user}>
