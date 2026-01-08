@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
-import { DeckPreview } from '@/components/deck/DeckPreview';
-import { ExportSettings } from '@/components/export/ExportSettings';
-import { PrintPreview } from '@/components/export/PrintPreview';
+import { DeckBuilderLayout } from '@/components/deck/DeckBuilderLayout';
 import { AddCustomCardModal } from '@/components/cards/AddCustomCardModal';
 import { useDeck } from '@/hooks/useDeck';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,7 +9,7 @@ import { saveDeck, updateDeck, saveGenerationHistory } from '@/lib/deck-service'
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Trash2, Save, Plus, PlusCircle } from 'lucide-react';
+import { Trash2, Save, PlusCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { Link } from 'react-router-dom';
 
@@ -48,7 +46,6 @@ export default function DeckBuilder() {
       setCards(deckCards);
       sessionStorage.removeItem('importedDeck');
       
-      // Check for not found cards
       const notFoundRaw = sessionStorage.getItem('notFoundCardIds');
       if (notFoundRaw) {
         const notFoundIds = JSON.parse(notFoundRaw) as number[];
@@ -150,7 +147,6 @@ export default function DeckBuilder() {
             const base64 = await loadImageAsBase64(imgUrl);
             pdf.addImage(base64, 'JPEG', x, y, cardW, cardH);
           } catch {
-            // Fallback: draw placeholder rectangle
             pdf.setFillColor(200, 200, 200);
             pdf.rect(x, y, cardW, cardH, 'F');
             pdf.setFontSize(8);
@@ -176,7 +172,6 @@ export default function DeckBuilder() {
 
       pdf.save(`${deck.name || 'deck'}.pdf`);
       
-      // Save to history if logged in
       if (user) {
         await saveGenerationHistory(
           user.id,
@@ -197,16 +192,17 @@ export default function DeckBuilder() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
-      <main className="container py-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <main className="container py-4 flex-1 flex flex-col">
+        {/* Header Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <Input
               value={deck.name}
               onChange={(e) => setDeckName(e.target.value)}
-              className="text-xl font-bold w-auto max-w-xs"
+              className="text-lg font-semibold w-auto max-w-[200px] h-9"
               placeholder="Tên deck"
             />
             {currentDeckId && (
@@ -214,18 +210,12 @@ export default function DeckBuilder() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/search">
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Tìm bài
-              </Button>
-            </Link>
             <Button 
               variant="outline" 
               size="sm"
               onClick={() => setShowCustomCardModal(true)}
             >
-              <PlusCircle className="h-4 w-4 mr-2" />
+              <PlusCircle className="h-4 w-4 mr-1.5" />
               Thêm bài custom
             </Button>
             <Button 
@@ -234,38 +224,33 @@ export default function DeckBuilder() {
               onClick={handleSaveDeck}
               disabled={saving || !user}
             >
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Đang lưu...' : 'Lưu deck'}
+              <Save className="h-4 w-4 mr-1.5" />
+              {saving ? 'Đang lưu...' : 'Lưu'}
             </Button>
             <Button variant="outline" size="sm" onClick={clearDeck}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Xóa hết
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              Xóa
             </Button>
           </div>
         </div>
 
         {!user && (
-          <div className="mb-6 p-4 bg-muted rounded-lg text-sm text-muted-foreground">
+          <div className="mb-4 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
             <Link to="/auth" className="text-primary hover:underline">Đăng nhập</Link> để lưu deck và xem lịch sử
           </div>
         )}
 
-        <div className="grid lg:grid-cols-[1fr_320px] gap-6">
-          <div className="space-y-6">
-            <DeckPreview cards={deck.cards} onRemoveCard={removeCard} />
-          </div>
-          
-          <div className="space-y-6">
-            <ExportSettings
-              settings={settings}
-              onSettingsChange={setSettings}
-              onExport={handleExport}
-              loading={exporting}
-              cardCount={getTotalCardCount()}
-            />
-            <PrintPreview cards={getAllCardsFlat()} settings={settings} />
-          </div>
-        </div>
+        {/* Main Layout */}
+        <DeckBuilderLayout
+          cards={deck.cards}
+          settings={settings}
+          onSettingsChange={setSettings}
+          onExport={handleExport}
+          exporting={exporting}
+          onAddCard={addCard}
+          onRemoveCard={removeCard}
+          getTotalCardCount={getTotalCardCount}
+        />
       </main>
 
       <AddCustomCardModal
