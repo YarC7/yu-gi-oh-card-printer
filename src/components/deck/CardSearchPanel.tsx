@@ -268,7 +268,7 @@ export function CardSearchPanel({ onCardClick, onAddCard, className }: CardSearc
       </ScrollArea>
 
       <div className="pt-2 border-t text-xs text-muted-foreground text-center">
-        Kéo thả bài vào deck • Double-click để thêm nhanh
+        Kéo thả hoặc double-click để thêm bài
       </div>
     </div>
   );
