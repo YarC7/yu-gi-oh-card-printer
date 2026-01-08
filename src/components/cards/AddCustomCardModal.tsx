@@ -172,9 +172,15 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
     return parts.join(' | ') || 'Chưa chọn';
   };
 
+  // Prevent closing dialog while saving
+  const handleOpenChange = (newOpen: boolean) => {
+    if (saving) return; // Don't close while saving
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onPointerDownOutside={(e) => saving && e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Thêm bài Pre-release / Custom</DialogTitle>
         </DialogHeader>
