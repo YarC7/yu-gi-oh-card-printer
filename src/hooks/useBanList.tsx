@@ -12,8 +12,11 @@ interface BanListContextType {
   banList: BanListInfo[];
   loading: boolean;
   error: string | null;
+  format: "TCG" | "OCG";
+  setFormat: (format: "TCG" | "OCG") => void;
   getBanStatus: (
-    cardId: number
+    cardId: number,
+    format?: "TCG" | "OCG"
   ) => "Banned" | "Limited" | "Semi-Limited" | null;
 }
 
@@ -23,6 +26,7 @@ export function BanListProvider({ children }: { children: ReactNode }) {
   const [banList, setBanList] = useState<BanListInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [format, setFormat] = useState<"TCG" | "OCG">("TCG");
 
   useEffect(() => {
     const fetchBanList = async () => {
@@ -43,14 +47,19 @@ export function BanListProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getBanStatus = (
-    cardId: number
+    cardId: number,
+    overrideFormat?: "TCG" | "OCG"
   ): "Banned" | "Limited" | "Semi-Limited" | null => {
     const banInfo = banList.find((b) => b.cardId === cardId);
-    return banInfo?.ban_tcg || null;
+    if (!banInfo) return null;
+    const currentFormat = overrideFormat || format;
+    return currentFormat === "TCG" ? banInfo.ban_tcg : banInfo.ban_ocg;
   };
 
   return (
-    <BanListContext.Provider value={{ banList, loading, error, getBanStatus }}>
+    <BanListContext.Provider
+      value={{ banList, loading, error, format, setFormat, getBanStatus }}
+    >
       {children}
     </BanListContext.Provider>
   );

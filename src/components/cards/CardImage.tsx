@@ -29,11 +29,11 @@ export function CardImage({
 }: CardImageProps) {
   const [imageError, setImageError] = useState(false);
   const [loading, setLoading] = useState(true);
-  const { getBanStatus } = useBanList();
+  const { getBanStatus, loading: banListLoading } = useBanList();
 
   const imageUrl =
     card.card_images?.[0]?.image_url_small || card.card_images?.[0]?.image_url;
-  const banStatus = getBanStatus(card.id);
+  const banStatus = banListLoading ? null : getBanStatus(card.id);
 
   return (
     <div
@@ -48,8 +48,8 @@ export function CardImage({
     >
       {banStatus && (
         <div className="absolute top-0.5 right-0.5 z-10">
-          <BanStatusBadge 
-            banStatus={banStatus} 
+          <BanStatusBadge
+            banStatus={banStatus}
             size={size === "sm" ? "sm" : size === "md" ? "md" : "lg"}
           />
         </div>

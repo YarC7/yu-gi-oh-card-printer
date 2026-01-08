@@ -155,6 +155,11 @@ export async function getBanList(): Promise<BanListInfo[]> {
       }
     });
 
+    console.log(
+      "Ban list loaded:",
+      banList.filter((b) => b.ban_tcg === "Semi-Limited")
+    );
+
     return banList;
   } catch (error) {
     console.error("Error fetching ban list:", error);

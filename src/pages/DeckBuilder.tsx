@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useDeck } from "@/hooks/useDeck";
 import { useAuth } from "@/hooks/useAuth";
+import { useBanList } from "@/hooks/useBanList";
 import {
   DEFAULT_EXPORT_SETTINGS,
   ExportSettings as Settings,
@@ -30,6 +31,13 @@ import { parseYDKFile, parseJSONDeck, readFileAsText } from "@/lib/ydk-parser";
 import { getCardsByIds } from "@/lib/ygoprodeck-api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Trash2,
@@ -45,6 +53,7 @@ import { Link } from "react-router-dom";
 
 export default function DeckBuilder() {
   const { user } = useAuth();
+  const { getBanStatus, format, setFormat } = useBanList();
   const {
     deck,
     setDeckName,
@@ -83,10 +92,61 @@ export default function DeckBuilder() {
   });
   const [showImportProgress, setShowImportProgress] = useState(false);
 
+  const validateCardAddition = (
+    card: YugiohCard,
+    section: "main" | "extra" | "side"
+  ): boolean => {
+    const banStatus = getBanStatus(card.id);
+
+    // Check if card is banned
+    if (banStatus === "Banned") {
+      toast.error(`Bài "${card.name}" bị cấm trong ${format} ban list`);
+      return false;
+    }
+
+    // Get current count of this card in the deck
+    const currentCount = deck.cards
+      .filter(
+        (deckCard) =>
+          deckCard.card.id === card.id && deckCard.section === section
+      )
+      .reduce((sum, deckCard) => sum + deckCard.quantity, 0);
+
+    // Check limited restrictions
+    if (banStatus === "Limited") {
+      if (currentCount >= 1) {
+        toast.error(
+          `Bài "${card.name}" chỉ được phép có 1 lá trong deck (${format} Limited)`
+        );
+        return false;
+      }
+    } else if (banStatus === "Semi-Limited") {
+      if (currentCount >= 2) {
+        toast.error(
+          `Bài "${card.name}" chỉ được phép có 2 lá trong deck (${format} Semi-Limited)`
+        );
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleAddCard = (
+    card: YugiohCard,
+    section: "main" | "extra" | "side"
+  ) => {
+    if (!validateCardAddition(card, section)) {
+      return;
+    }
+    addCard(card, section);
+  };
+
   const generateTestHand = () => {
     const mainDeckCards = deck.cards.filter((card) => card.section === "main");
-    if (mainDeckCards.length < 5) {
-      toast.error("Main Deck cần ít nhất 5 bài để test hand");
+
+    if (mainDeckCards.length === 0) {
+      toast.error("Main deck trống, không thể test hand");
       return;
     }
 
@@ -98,7 +158,12 @@ export default function DeckBuilder() {
       }
     });
 
-    // Shuffle and pick 5 cards
+    if (cardPool.length < 5) {
+      toast.error("Main deck cần ít nhất 5 lá bài để test hand");
+      return;
+    }
+
+    // Shuffle and pick 5 random cards
     const shuffled = [...cardPool].sort(() => Math.random() - 0.5);
     const hand = shuffled.slice(0, 5);
 
@@ -419,6 +484,15 @@ export default function DeckBuilder() {
             )}
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <Select value={format} onValueChange={setFormat}>
+              <SelectTrigger className="w-[80px] sm:w-[100px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TCG">TCG</SelectItem>
+                <SelectItem value="OCG">OCG</SelectItem>
+              </SelectContent>
+            </Select>
             {/* Export Button - Moved to header */}
             <Button
               size="sm"
@@ -581,7 +655,7 @@ export default function DeckBuilder() {
         {/* Main Layout */}
         <DeckBuilderLayout
           cards={deck.cards}
-          onAddCard={addCard}
+          onAddCard={handleAddCard}
           onRemoveCard={removeCard}
           getTotalCardCount={getTotalCardCount}
         />
@@ -590,7 +664,7 @@ export default function DeckBuilder() {
       <AddCustomCardModal
         open={showCustomCardModal}
         onOpenChange={setShowCustomCardModal}
-        onAddCard={addCard}
+        onAddCard={handleAddCard}
       />
 
       {/* Export Progress Dialog */}

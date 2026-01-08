@@ -24,14 +24,14 @@ export function CardDetailModal({
   onOpenChange,
   onAddCard,
 }: CardDetailModalProps) {
-  const { getBanStatus } = useBanList();
+  const { getBanStatus, loading: banListLoading } = useBanList();
 
   if (!card) return null;
 
   const isMonster = card.type.toLowerCase().includes("monster");
   const isLink = card.type.toLowerCase().includes("link");
   const isPendulum = card.type.toLowerCase().includes("pendulum");
-  const banStatus = getBanStatus(card.id);
+  const banStatus = banListLoading ? null : getBanStatus(card.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
