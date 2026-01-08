@@ -50,6 +50,36 @@ function getFrameType(type: string): string {
   return 'effect';
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isAbortLikeError(err: unknown): boolean {
+  if (!err) return false;
+  if (typeof DOMException !== 'undefined' && err instanceof DOMException) {
+    return err.name === 'AbortError';
+  }
+  if (typeof err === 'object' && err && 'message' in err) {
+    const msg = String((err as { message?: unknown }).message ?? '').toLowerCase();
+    return msg.includes('aborterror') || msg.includes('signal is aborted');
+  }
+  return false;
+}
+
+async function withAbortRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (!isAbortLikeError(err) || attempt === retries) break;
+      await sleep(400 * (attempt + 1));
+    }
+  }
+  throw lastErr;
+}
+
 export function customCardToYugiohCard(row: CustomCardRow): YugiohCard {
   return {
     id: -Math.abs(row.id.charCodeAt(0) * 1000000 + row.id.charCodeAt(1) * 10000 + Date.now() % 10000),
@@ -65,72 +95,78 @@ export function customCardToYugiohCard(row: CustomCardRow): YugiohCard {
     linkval: row.link_val || undefined,
     scale: row.scale || undefined,
     archetype: row.archetype || undefined,
-    card_images: row.image_url ? [{
-      id: -Date.now(),
-      image_url: row.image_url,
-      image_url_small: row.image_url,
-      image_url_cropped: row.image_url,
-    }] : [],
+    card_images: row.image_url
+      ? [{
+          id: -Date.now(),
+          image_url: row.image_url,
+          image_url_small: row.image_url,
+          image_url_cropped: row.image_url,
+        }]
+      : [],
   };
 }
 
 export async function uploadCustomCardImage(userId: string, file: File): Promise<string | null> {
-  const fileExt = file.name.split('.').pop();
+  const fileExt = file.name.split('.').pop() || 'png';
   const fileName = `${userId}/${Date.now()}.${fileExt}`;
 
-  const { error } = await supabase.storage
-    .from('custom-cards')
-    .upload(fileName, file, { upsert: true });
-
-  if (error) {
+  try {
+    await withAbortRetry(async () => {
+      const { error } = await supabase.storage.from('custom-cards').upload(fileName, file, { upsert: true });
+      if (error) throw error;
+    }, 2);
+  } catch (error) {
     console.error('Error uploading image:', error);
     return null;
   }
 
-  const { data: { publicUrl } } = supabase.storage
-    .from('custom-cards')
-    .getPublicUrl(fileName);
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('custom-cards').getPublicUrl(fileName);
 
   return publicUrl;
 }
 
-export async function createCustomCard(
-  userId: string,
-  input: CustomCardInput
-): Promise<CustomCardRow | null> {
+export async function createCustomCard(userId: string, input: CustomCardInput): Promise<CustomCardRow | null> {
   let imageUrl: string | null = null;
 
   if (input.imageFile) {
+    // Image upload errors shouldn't block saving the card
     imageUrl = await uploadCustomCardImage(userId, input.imageFile);
   }
 
-  const { data, error } = await supabase
-    .from('custom_cards')
-    .insert({
-      user_id: userId,
-      name: input.name,
-      type: input.type,
-      frame_type: getFrameType(input.type),
-      description: input.description || null,
-      attribute: input.attribute || null,
-      race: input.race || null,
-      level: input.level || null,
-      atk: input.atk || null,
-      def: input.def || null,
-      link_val: input.linkVal || null,
-      scale: input.scale || null,
-      archetype: input.archetype || null,
-      image_url: imageUrl,
-    })
-    .select()
-    .single();
+  try {
+    const { data } = await withAbortRetry(async () => {
+      const res = await supabase
+        .from('custom_cards')
+        .insert({
+          user_id: userId,
+          name: input.name,
+          type: input.type,
+          frame_type: getFrameType(input.type),
+          description: input.description || null,
+          attribute: input.attribute || null,
+          race: input.race || null,
+          level: input.level || null,
+          atk: input.atk || null,
+          def: input.def || null,
+          link_val: input.linkVal || null,
+          scale: input.scale || null,
+          archetype: input.archetype || null,
+          image_url: imageUrl,
+        })
+        .select()
+        .single();
 
-  if (error) {
+      if (res.error) throw res.error;
+      return res;
+    }, 2);
+
+    return data;
+  } catch (error) {
     console.error('Error creating custom card:', error);
     return null;
   }
-
-  return data;
 }
 
 export async function searchCustomCards(keyword?: string): Promise<YugiohCard[]> {
@@ -151,10 +187,7 @@ export async function searchCustomCards(keyword?: string): Promise<YugiohCard[]>
 }
 
 export async function getAllCustomCards(): Promise<YugiohCard[]> {
-  const { data, error } = await supabase
-    .from('custom_cards')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('custom_cards').select('*').order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching custom cards:', error);
@@ -165,10 +198,7 @@ export async function getAllCustomCards(): Promise<YugiohCard[]> {
 }
 
 export async function deleteCustomCard(cardId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('custom_cards')
-    .delete()
-    .eq('id', cardId);
+  const { error } = await supabase.from('custom_cards').delete().eq('id', cardId);
 
   return !error;
 }
