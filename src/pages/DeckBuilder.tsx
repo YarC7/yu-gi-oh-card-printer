@@ -97,26 +97,27 @@ export default function DeckBuilder() {
     }
   };
 
-  // Helper to load image as base64
-  const loadImageAsBase64 = (url: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/jpeg', 0.9));
-        } else {
-          reject(new Error('Canvas context not available'));
-        }
-      };
-      img.onerror = () => reject(new Error('Image load failed'));
-      img.src = url;
-    });
+  // Helper to load image as base64 using fetch (bypasses canvas CORS issues)
+  const loadImageAsBase64 = async (url: string): Promise<string> => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Fetch failed');
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Failed to read blob'));
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      throw new Error('Image load failed');
+    }
   };
 
   const handleExport = async () => {
