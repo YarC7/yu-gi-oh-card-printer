@@ -18,6 +18,7 @@ Một ứng dụng web để tạo và in thẻ Yu-Gi-Oh! tùy chỉnh. Ứng d�
 - 💾 Lưu trữ bộ bài trong cơ sở dữ liệu
 - ⚡ Tối ưu hiệu suất với cache 24 giờ và debounce 300ms
 - 🔄 Grid thẻ ảo hóa cho hiệu suất cao
+- 🔍 Tối ưu SEO với meta tags đầy đủ, structured data và sitemap
 
 ## Công nghệ sử dụng
 

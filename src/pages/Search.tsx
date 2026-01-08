@@ -23,6 +23,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { ShoppingCart, ArrowRight } from "lucide-react";
 import { useBanList } from "@/hooks/useBanList";
+import { SEO } from "@/components/seo/SEO";
 import {
   Pagination,
   PaginationContent,
@@ -111,28 +112,37 @@ export default function Search() {
       }
     });
 
-    const deckCards: DeckCard[] = [];
+    // Build arrays of card IDs for each section
+    const mainIds: number[] = [];
+    const extraIds: number[] = [];
+    const sideIds: number[] = [];
+
     cardCounts.forEach(({ card, count }) => {
       // Determine section based on card type
-      let section: "main" | "extra" | "side" = "main";
       const type = card.type.toLowerCase();
-      if (
+      const isExtra =
         type.includes("fusion") ||
         type.includes("synchro") ||
         type.includes("xyz") ||
-        type.includes("link")
-      ) {
-        section = "extra";
+        type.includes("link");
+
+      const quantity = Math.min(count, 3);
+      const targetArray = isExtra ? extraIds : mainIds;
+
+      // Add card ID multiple times based on quantity
+      for (let i = 0; i < quantity; i++) {
+        targetArray.push(card.id);
       }
-      deckCards.push({ card, quantity: Math.min(count, 3), section });
     });
+
+    // Get unique cards for the cards array
+    const uniqueCards = Array.from(cardCounts.values()).map(({ card }) => card);
 
     sessionStorage.setItem(
       "importedDeck",
       JSON.stringify({
-        parsed: { main: [], extra: [], side: [] },
-        cards: selectedCards,
-        deckCards,
+        parsed: { main: mainIds, extra: extraIds, side: sideIds },
+        cards: uniqueCards,
       })
     );
 
@@ -140,118 +150,125 @@ export default function Search() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <main className="container py-6">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Tìm kiếm bài</h1>
-            <div className="flex items-center gap-3">
-              <Select value={format} onValueChange={setFormat}>
-                <SelectTrigger className="w-[80px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TCG">TCG</SelectItem>
-                  <SelectItem value="OCG">OCG</SelectItem>
-                </SelectContent>
-              </Select>
-              {selectedCards.length > 0 && (
-                <>
-                  <Badge variant="secondary" className="gap-1">
-                    <ShoppingCart className="h-3 w-3" />
-                    {selectedCards.length} bài đã chọn
-                  </Badge>
-                  <Button size="sm" onClick={handleGoToDeckBuilder}>
-                    Đến Deck Builder
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-
-          <CardSearchFilters
-            onSearch={(filters) => handleSearch(filters, 1)}
-            loading={loading}
-          />
-
-          <CardGrid
-            cards={cards}
-            loading={loading}
-            onCardClick={setSelectedCard}
-            onAddCard={handleAddCard}
-            emptyMessage="Nhập tên bài hoặc sử dụng bộ lọc để tìm kiếm"
-          />
-
-          {/* Pagination */}
-          {totalCount > 50 && (
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Hiển thị {cards.length} / {totalCount} kết quả
-              </div>
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() =>
-                        currentPage > 1 && handlePageChange(currentPage - 1)
-                      }
-                      className={
-                        currentPage <= 1
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer"
-                      }
-                    />
-                  </PaginationItem>
-
-                  {/* Page numbers - show max 5 pages around current page */}
-                  {Array.from(
-                    { length: Math.min(5, Math.ceil(totalCount / 50)) },
-                    (_, i) => {
-                      const pageNum = Math.max(1, currentPage - 2) + i;
-                      if (pageNum > Math.ceil(totalCount / 50)) return null;
-
-                      return (
-                        <PaginationItem key={pageNum}>
-                          <PaginationLink
-                            onClick={() => handlePageChange(pageNum)}
-                            isActive={pageNum === currentPage}
-                            className="cursor-pointer"
-                          >
-                            {pageNum}
-                          </PaginationLink>
-                        </PaginationItem>
-                      );
-                    }
-                  )}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        hasMore && handlePageChange(currentPage + 1)
-                      }
-                      className={
-                        !hasMore
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer"
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
-        </div>
-      </main>
-
-      <CardDetailModal
-        card={selectedCard}
-        open={!!selectedCard}
-        onOpenChange={(open) => !open && setSelectedCard(null)}
-        onAddCard={handleAddCard}
+    <>
+      <SEO
+        title="Yu-Gi-Oh! Card Search - Find & Browse 12,000+ Cards Online"
+        description="Search and browse through 12,000+ Yu-Gi-Oh! cards with advanced filters. Find monsters, spells, traps, and more. Check ban lists and build decks with our comprehensive card database."
+        keywords="Yu-Gi-Oh card search, YGOPRODeck, card database, monster cards, spell cards, trap cards, TCG cards, OCG cards, deck building"
       />
-    </div>
+      <div className="min-h-screen bg-background">
+        <Header />
+
+        <main className="container py-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-bold">Tìm kiếm bài</h1>
+              <div className="flex items-center gap-3">
+                <Select value={format} onValueChange={setFormat}>
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TCG">TCG</SelectItem>
+                    <SelectItem value="OCG">OCG</SelectItem>
+                  </SelectContent>
+                </Select>
+                {selectedCards.length > 0 && (
+                  <>
+                    <Badge variant="secondary" className="gap-1">
+                      <ShoppingCart className="h-3 w-3" />
+                      {selectedCards.length} bài đã chọn
+                    </Badge>
+                    <Button size="sm" onClick={handleGoToDeckBuilder}>
+                      Đến Deck Builder
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <CardSearchFilters
+              onSearch={(filters) => handleSearch(filters, 1)}
+              loading={loading}
+            />
+
+            <CardGrid
+              cards={cards}
+              loading={loading}
+              onCardClick={setSelectedCard}
+              onAddCard={handleAddCard}
+              emptyMessage="Nhập tên bài hoặc sử dụng bộ lọc để tìm kiếm"
+            />
+
+            {/* Pagination */}
+            {totalCount > 50 && (
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Hiển thị {cards.length} / {totalCount} kết quả
+                </div>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() =>
+                          currentPage > 1 && handlePageChange(currentPage - 1)
+                        }
+                        className={
+                          currentPage <= 1
+                            ? "pointer-events-none opacity-50"
+                            : "cursor-pointer"
+                        }
+                      />
+                    </PaginationItem>
+
+                    {/* Page numbers - show max 5 pages around current page */}
+                    {Array.from(
+                      { length: Math.min(5, Math.ceil(totalCount / 50)) },
+                      (_, i) => {
+                        const pageNum = Math.max(1, currentPage - 2) + i;
+                        if (pageNum > Math.ceil(totalCount / 50)) return null;
+
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              onClick={() => handlePageChange(pageNum)}
+                              isActive={pageNum === currentPage}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      }
+                    )}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() =>
+                          hasMore && handlePageChange(currentPage + 1)
+                        }
+                        className={
+                          !hasMore
+                            ? "pointer-events-none opacity-50"
+                            : "cursor-pointer"
+                        }
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </div>
+        </main>
+
+        <CardDetailModal
+          card={selectedCard}
+          open={!!selectedCard}
+          onOpenChange={(open) => !open && setSelectedCard(null)}
+          onAddCard={handleAddCard}
+        />
+      </div>
+    </>
   );
 }

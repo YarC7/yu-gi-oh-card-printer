@@ -37,23 +37,17 @@ export function CardDetailModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+        {/* <DialogHeader>
           <DialogTitle className="text-xl">{card.name}</DialogTitle>
-        </DialogHeader>
+        </DialogHeader> */}
 
-        <div className="grid md:grid-cols-[300px_1fr] lg:grid-cols-[400px_1fr] gap-6">
+        <div className="grid md:grid-cols-[300px_1fr] lg:grid-cols-[500px_1fr] gap-6">
           <div>
             <LazyImage
               src={card.card_images[0]?.image_url}
               alt={card.name}
               className="w-full rounded-lg shadow-md"
             />
-            {onAddCard && (
-              <Button className="w-full mt-3" onClick={() => onAddCard(card)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Thêm vào deck
-              </Button>
-            )}
           </div>
 
           <div className="space-y-4">
@@ -145,6 +139,12 @@ export function CardDetailModal({
                 <span>{card.ygoprodeck_url}</span>
               </Link>
             </div>
+            {onAddCard && (
+              <Button className="w-full mt-3" onClick={() => onAddCard(card)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Thêm vào deck
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

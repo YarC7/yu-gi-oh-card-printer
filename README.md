@@ -19,6 +19,7 @@ Read this in [English](README.md) | [Tiếng Việt](README.vi.md)
 - 🔐 **Authentication**: Secure user authentication with Supabase
 - 💾 **Cloud Storage**: Store and manage decks in the cloud
 - 🚀 **Fast Search**: Debounced search with intelligent API optimization
+- 🔍 **SEO Optimized**: Complete meta tags, structured data, Open Graph, and sitemap for better search visibility
 
 ## Technologies Used
 
