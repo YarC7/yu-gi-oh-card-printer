@@ -97,27 +97,36 @@ export default function DeckBuilder() {
     }
   };
 
-  // Helper to load image as base64 using fetch (bypasses canvas CORS issues)
-  const loadImageAsBase64 = async (url: string): Promise<string> => {
+  const buildImageFetchUrl = (url: string) => {
     try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Fetch failed');
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === 'string') {
-            resolve(reader.result);
-          } else {
-            reject(new Error('Failed to read blob'));
-          }
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      const u = new URL(url);
+      // images.ygoprodeck.com does not allow browser fetch/CORS reliably, so proxy via backend
+      if (u.hostname === 'images.ygoprodeck.com') {
+        const base = import.meta.env.VITE_SUPABASE_URL;
+        return `${base}/functions/v1/image-proxy?url=${encodeURIComponent(url)}`;
+      }
     } catch {
-      throw new Error('Image load failed');
+      // ignore
     }
+    return url;
+  };
+
+  // Helper to load image as base64
+  const loadImageAsBase64 = async (url: string): Promise<string> => {
+    const fetchUrl = buildImageFetchUrl(url);
+    const response = await fetch(fetchUrl);
+    if (!response.ok) throw new Error('Fetch failed');
+    const blob = await response.blob();
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') resolve(reader.result);
+        else reject(new Error('Failed to read blob'));
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   };
 
   const handleExport = async () => {
