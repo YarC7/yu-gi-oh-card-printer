@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { BanStatusBadge } from "./BanStatusBadge";
 import { useBanList } from "@/hooks/useBanList";
+import { Link } from "react-router-dom";
 
 interface CardDetailModalProps {
   card: YugiohCard | null;
@@ -25,7 +26,6 @@ export function CardDetailModal({
   onAddCard,
 }: CardDetailModalProps) {
   const { getBanStatus, loading: banListLoading } = useBanList();
-
   if (!card) return null;
 
   const isMonster = card.type.toLowerCase().includes("monster");
@@ -35,12 +35,12 @@ export function CardDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">{card.name}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-[200px_1fr] gap-6">
+        <div className="grid md:grid-cols-[300px_1fr] gap-6">
           <div>
             <img
               src={card.card_images[0]?.image_url}
@@ -134,6 +134,16 @@ export function CardDetailModal({
                 </div>
               </div>
             )}
+            <div>
+              <Link
+                className="text-sm"
+                to={card.ygoprodeck_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span>{card.ygoprodeck_url}</span>
+              </Link>
+            </div>
           </div>
         </div>
       </DialogContent>

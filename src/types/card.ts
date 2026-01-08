@@ -8,6 +8,7 @@ export interface YugiohCard {
   def?: number;
   level?: number;
   race: string;
+  ygoprodeck_url: string;
   attribute?: string;
   archetype?: string;
   linkval?: number;
