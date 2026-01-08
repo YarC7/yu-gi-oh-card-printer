@@ -1,81 +1,203 @@
-import { useState, useEffect } from 'react';
-import { Header } from '@/components/layout/Header';
-import { DeckBuilderLayout } from '@/components/deck/DeckBuilderLayout';
-import { AddCustomCardModal } from '@/components/cards/AddCustomCardModal';
-import { ProgressDialog } from '@/components/ui/progress-dialog';
-import { useDeck } from '@/hooks/useDeck';
-import { useAuth } from '@/hooks/useAuth';
-import { DEFAULT_EXPORT_SETTINGS, ExportSettings as Settings, YugiohCard, DeckCard } from '@/types/card';
-import { saveDeck, updateDeck, saveGenerationHistory } from '@/lib/deck-service';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import { Trash2, Save, PlusCircle, Download } from 'lucide-react';
-import { jsPDF } from 'jspdf';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { Header } from "@/components/layout/Header";
+import { DeckBuilderLayout } from "@/components/deck/DeckBuilderLayout";
+import { AddCustomCardModal } from "@/components/cards/AddCustomCardModal";
+import { ProgressDialog } from "@/components/ui/progress-dialog";
+import { ExportSettings } from "@/components/export/ExportSettings";
+import { FileUpload } from "@/components/upload/FileUpload";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useDeck } from "@/hooks/useDeck";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  DEFAULT_EXPORT_SETTINGS,
+  ExportSettings as Settings,
+  YugiohCard,
+  DeckCard,
+} from "@/types/card";
+import {
+  saveDeck,
+  updateDeck,
+  saveGenerationHistory,
+} from "@/lib/deck-service";
+import { parseYDKFile, parseJSONDeck, readFileAsText } from "@/lib/ydk-parser";
+import { getCardsByIds } from "@/lib/ygoprodeck-api";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import {
+  Trash2,
+  Save,
+  PlusCircle,
+  Download,
+  Settings as SettingsIcon,
+  Upload,
+} from "lucide-react";
+import { jsPDF } from "jspdf";
+import { Link } from "react-router-dom";
 
 export default function DeckBuilder() {
   const { user } = useAuth();
-  const { deck, setDeckName, addCard, removeCard, setCards, clearDeck, getAllCardsFlat, getTotalCardCount, loadDeck } = useDeck();
+  const {
+    deck,
+    setDeckName,
+    addCard,
+    removeCard,
+    setCards,
+    clearDeck,
+    getAllCardsFlat,
+    getTotalCardCount,
+    loadDeck,
+  } = useDeck();
   const [settings, setSettings] = useState<Settings>(DEFAULT_EXPORT_SETTINGS);
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null);
   const [showCustomCardModal, setShowCustomCardModal] = useState(false);
-  
+  const [showExportSettingsModal, setShowExportSettingsModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+
   // Progress state
-  const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
+  const [exportProgress, setExportProgress] = useState({
+    current: 0,
+    total: 0,
+  });
   const [showExportProgress, setShowExportProgress] = useState(false);
 
-  useEffect(() => {
-    const imported = sessionStorage.getItem('importedDeck');
-    if (imported) {
-      const { parsed, cards } = JSON.parse(imported) as { parsed: { main: number[], extra: number[], side: number[] }, cards: YugiohCard[] };
-      const cardMap = new Map(cards.map(c => [c.id, c]));
-      
+  // Import progress state
+  const [importProgress, setImportProgress] = useState({
+    current: 0,
+    total: 0,
+    stage: "",
+  });
+  const [showImportProgress, setShowImportProgress] = useState(false);
+
+  const handleFileSelect = async (file: File) => {
+    setShowImportProgress(true);
+    setImportProgress({ current: 0, total: 3, stage: "Đọc file..." });
+
+    try {
+      const content = await readFileAsText(file);
+      const isJSON = file.name.endsWith(".json");
+      const parsed = isJSON ? parseJSONDeck(content) : parseYDKFile(content);
+
+      const allIds = [...parsed.main, ...parsed.extra, ...parsed.side];
+
+      if (allIds.length === 0) {
+        toast.error("File không chứa ID bài hợp lệ");
+        setShowImportProgress(false);
+        return;
+      }
+
+      setImportProgress({
+        current: 1,
+        total: 3,
+        stage: `Tải ${allIds.length} bài...`,
+      });
+
+      const { cards, notFoundIds } = await getCardsByIds(allIds);
+
+      setImportProgress({ current: 2, total: 3, stage: "Xử lý deck..." });
+
+      if (notFoundIds.length > 0) {
+        sessionStorage.setItem("notFoundCardIds", JSON.stringify(notFoundIds));
+      } else {
+        sessionStorage.removeItem("notFoundCardIds");
+      }
+
+      // Convert to deck cards format
+      const cardMap = new Map(cards.map((c) => [c.id, c]));
       const deckCards: DeckCard[] = [];
-      
-      const addToDeck = (ids: number[], section: 'main' | 'extra' | 'side') => {
+
+      const addToDeck = (ids: number[], section: "main" | "extra" | "side") => {
         const counts = new Map<number, number>();
-        ids.forEach(id => counts.set(id, (counts.get(id) || 0) + 1));
+        ids.forEach((id) => counts.set(id, (counts.get(id) || 0) + 1));
         counts.forEach((qty, id) => {
           const card = cardMap.get(id);
           if (card) deckCards.push({ card, quantity: qty, section });
         });
       };
-      
-      addToDeck(parsed.main, 'main');
-      addToDeck(parsed.extra, 'extra');
-      addToDeck(parsed.side, 'side');
-      
+
+      addToDeck(parsed.main, "main");
+      addToDeck(parsed.extra, "extra");
+      addToDeck(parsed.side, "side");
+
       setCards(deckCards);
-      sessionStorage.removeItem('importedDeck');
-      
-      const notFoundRaw = sessionStorage.getItem('notFoundCardIds');
+      setCurrentDeckId(null); // Reset saved deck ID since this is a new import
+
+      setImportProgress({ current: 3, total: 3, stage: "Hoàn tất!" });
+
+      setTimeout(() => {
+        setShowImportProgress(false);
+        setShowImportModal(false);
+        toast.success("Đã import deck thành công!");
+      }, 500);
+    } catch (error) {
+      toast.error("Có lỗi khi đọc file");
+      console.error(error);
+      setShowImportProgress(false);
+    }
+  };
+
+  useEffect(() => {
+    const imported = sessionStorage.getItem("importedDeck");
+    if (imported) {
+      const { parsed, cards } = JSON.parse(imported) as {
+        parsed: { main: number[]; extra: number[]; side: number[] };
+        cards: YugiohCard[];
+      };
+      const cardMap = new Map(cards.map((c) => [c.id, c]));
+
+      const deckCards: DeckCard[] = [];
+
+      const addToDeck = (ids: number[], section: "main" | "extra" | "side") => {
+        const counts = new Map<number, number>();
+        ids.forEach((id) => counts.set(id, (counts.get(id) || 0) + 1));
+        counts.forEach((qty, id) => {
+          const card = cardMap.get(id);
+          if (card) deckCards.push({ card, quantity: qty, section });
+        });
+      };
+
+      addToDeck(parsed.main, "main");
+      addToDeck(parsed.extra, "extra");
+      addToDeck(parsed.side, "side");
+
+      setCards(deckCards);
+      sessionStorage.removeItem("importedDeck");
+
+      const notFoundRaw = sessionStorage.getItem("notFoundCardIds");
       if (notFoundRaw) {
         const notFoundIds = JSON.parse(notFoundRaw) as number[];
         if (notFoundIds.length > 0) {
           toast.warning(
             `${notFoundIds.length} bài không tìm thấy trong database (có thể là bài pre-release)`,
             {
-              description: `ID: ${notFoundIds.slice(0, 5).join(', ')}${notFoundIds.length > 5 ? '...' : ''}`,
+              description: `ID: ${notFoundIds.slice(0, 5).join(", ")}${
+                notFoundIds.length > 5 ? "..." : ""
+              }`,
               duration: 10000,
             }
           );
         }
-        sessionStorage.removeItem('notFoundCardIds');
+        sessionStorage.removeItem("notFoundCardIds");
       }
     }
   }, [setCards]);
 
   const handleSaveDeck = async () => {
     if (!user) {
-      toast.error('Vui lòng đăng nhập để lưu deck');
+      toast.error("Vui lòng đăng nhập để lưu deck");
       return;
     }
 
     if (deck.cards.length === 0) {
-      toast.error('Deck trống');
+      toast.error("Deck trống");
       return;
     }
 
@@ -84,17 +206,17 @@ export default function DeckBuilder() {
       if (currentDeckId) {
         const success = await updateDeck(currentDeckId, deck);
         if (success) {
-          toast.success('Đã cập nhật deck!');
+          toast.success("Đã cập nhật deck!");
         } else {
-          toast.error('Có lỗi khi cập nhật');
+          toast.error("Có lỗi khi cập nhật");
         }
       } else {
         const result = await saveDeck(deck, user.id);
         if (result) {
           setCurrentDeckId(result.id);
-          toast.success('Đã lưu deck!');
+          toast.success("Đã lưu deck!");
         } else {
-          toast.error('Có lỗi khi lưu');
+          toast.error("Có lỗi khi lưu");
         }
       }
     } finally {
@@ -105,9 +227,11 @@ export default function DeckBuilder() {
   const buildImageFetchUrl = (url: string) => {
     try {
       const u = new URL(url);
-      if (u.hostname === 'images.ygoprodeck.com') {
+      if (u.hostname === "images.ygoprodeck.com") {
         const base = import.meta.env.VITE_SUPABASE_URL;
-        return `${base}/functions/v1/image-proxy?url=${encodeURIComponent(url)}`;
+        return `${base}/functions/v1/image-proxy?url=${encodeURIComponent(
+          url
+        )}`;
       }
     } catch {
       // ignore
@@ -118,14 +242,14 @@ export default function DeckBuilder() {
   const loadImageAsBase64 = async (url: string): Promise<string> => {
     const fetchUrl = buildImageFetchUrl(url);
     const response = await fetch(fetchUrl);
-    if (!response.ok) throw new Error('Fetch failed');
+    if (!response.ok) throw new Error("Fetch failed");
     const blob = await response.blob();
 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (typeof reader.result === 'string') resolve(reader.result);
-        else reject(new Error('Failed to read blob'));
+        if (typeof reader.result === "string") resolve(reader.result);
+        else reject(new Error("Failed to read blob"));
       };
       reader.onerror = reject;
       reader.readAsDataURL(blob);
@@ -135,7 +259,7 @@ export default function DeckBuilder() {
   const handleExport = async () => {
     const cards = getAllCardsFlat();
     if (cards.length === 0) {
-      toast.error('Deck trống');
+      toast.error("Deck trống");
       return;
     }
 
@@ -144,12 +268,16 @@ export default function DeckBuilder() {
     setExportProgress({ current: 0, total: cards.length });
 
     try {
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'cm', format: 'a4' });
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "cm",
+        format: "a4",
+      });
       const cardW = settings.cardWidth;
       const cardH = settings.cardHeight;
       const margin = 1;
       const gap = 0.2;
-      
+
       let x = margin;
       let y = margin;
       let col = 0;
@@ -157,16 +285,16 @@ export default function DeckBuilder() {
       for (let i = 0; i < cards.length; i++) {
         const card = cards[i];
         const imgUrl = card.card_images[0]?.image_url;
-        
+
         setExportProgress({ current: i + 1, total: cards.length });
-        
+
         if (imgUrl) {
           try {
             const base64 = await loadImageAsBase64(imgUrl);
-            pdf.addImage(base64, 'JPEG', x, y, cardW, cardH);
+            pdf.addImage(base64, "JPEG", x, y, cardW, cardH);
           } catch {
             pdf.setFillColor(200, 200, 200);
-            pdf.rect(x, y, cardW, cardH, 'F');
+            pdf.rect(x, y, cardW, cardH, "F");
             pdf.setFontSize(8);
             pdf.setTextColor(100);
             pdf.text(card.name.substring(0, 15), x + 0.2, y + cardH / 2);
@@ -178,7 +306,7 @@ export default function DeckBuilder() {
           col = 0;
           x = margin;
           y += cardH + gap;
-          
+
           if (y + cardH > 29.7 - margin && i < cards.length - 1) {
             pdf.addPage();
             y = margin;
@@ -188,8 +316,8 @@ export default function DeckBuilder() {
         }
       }
 
-      pdf.save(`${deck.name || 'deck'}.pdf`);
-      
+      pdf.save(`${deck.name || "deck"}.pdf`);
+
       if (user) {
         await saveGenerationHistory(
           user.id,
@@ -199,10 +327,10 @@ export default function DeckBuilder() {
           currentDeckId || undefined
         );
       }
-      
-      toast.success('Đã xuất file PDF!');
+
+      toast.success("Đã xuất file PDF!");
     } catch (error) {
-      toast.error('Có lỗi khi xuất file');
+      toast.error("Có lỗi khi xuất file");
       console.error(error);
     } finally {
       setExporting(false);
@@ -213,7 +341,7 @@ export default function DeckBuilder() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      
+
       <main className="container py-4 flex-1 flex flex-col px-2 sm:px-4">
         {/* Header Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -225,7 +353,9 @@ export default function DeckBuilder() {
               placeholder="Tên deck"
             />
             {currentDeckId && (
-              <span className="text-xs text-muted-foreground hidden sm:inline">Đã lưu</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                Đã lưu
+              </span>
             )}
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
@@ -238,30 +368,72 @@ export default function DeckBuilder() {
             >
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">
-                {exporting ? 'Đang xuất...' : `Xuất (${getTotalCardCount()})`}
+                {exporting ? "Đang xuất..." : `Xuất (${getTotalCardCount()})`}
               </span>
               <span className="sm:hidden">
-                {exporting ? '...' : getTotalCardCount()}
+                {exporting ? "..." : getTotalCardCount()}
               </span>
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => setShowCustomCardModal(true)}
               className="gap-1.5"
             >
               <PlusCircle className="h-4 w-4" />
               <span className="hidden sm:inline">Thêm custom</span>
-            </Button>
-            <Button 
-              variant="outline" 
+            </Button>{" "}
+            <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Upload className="h-4 w-4" />
+                  <span className="hidden sm:inline">Import File</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Import Deck từ File</DialogTitle>
+                </DialogHeader>
+                <FileUpload onFileSelect={handleFileSelect} />
+              </DialogContent>
+            </Dialog>{" "}
+            <Dialog
+              open={showExportSettingsModal}
+              onOpenChange={setShowExportSettingsModal}
+            >
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <SettingsIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Cài đặt xuất</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Cài đặt xuất file</DialogTitle>
+                </DialogHeader>
+                <ExportSettings
+                  settings={settings}
+                  onSettingsChange={setSettings}
+                  onExport={() => {
+                    handleExport();
+                    setShowExportSettingsModal(false);
+                  }}
+                  loading={exporting}
+                  cardCount={getTotalCardCount()}
+                />
+              </DialogContent>
+            </Dialog>
+            <Button
+              variant="outline"
               size="sm"
               onClick={handleSaveDeck}
               disabled={saving || !user}
               className="gap-1.5"
             >
               <Save className="h-4 w-4" />
-              <span className="hidden sm:inline">{saving ? 'Đang lưu...' : 'Lưu'}</span>
+              <span className="hidden sm:inline">
+                {saving ? "Đang lưu..." : "Lưu"}
+              </span>
             </Button>
             <Button variant="outline" size="sm" onClick={clearDeck}>
               <Trash2 className="h-4 w-4" />
@@ -272,17 +444,16 @@ export default function DeckBuilder() {
 
         {!user && (
           <div className="mb-4 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
-            <Link to="/auth" className="text-primary hover:underline">Đăng nhập</Link> để lưu deck và xem lịch sử
+            <Link to="/auth" className="text-primary hover:underline">
+              Đăng nhập
+            </Link>{" "}
+            để lưu deck và xem lịch sử
           </div>
         )}
 
         {/* Main Layout */}
         <DeckBuilderLayout
           cards={deck.cards}
-          settings={settings}
-          onSettingsChange={setSettings}
-          onExport={handleExport}
-          exporting={exporting}
           onAddCard={addCard}
           onRemoveCard={removeCard}
           getTotalCardCount={getTotalCardCount}
@@ -302,6 +473,15 @@ export default function DeckBuilder() {
         description="Đang tải và xử lý hình ảnh"
         progress={exportProgress.current}
         total={exportProgress.total}
+      />
+
+      {/* Import Progress Dialog */}
+      <ProgressDialog
+        open={showImportProgress}
+        title="Đang import deck..."
+        description={importProgress.stage}
+        progress={importProgress.current}
+        total={importProgress.total}
       />
     </div>
   );

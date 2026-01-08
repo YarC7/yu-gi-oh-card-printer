@@ -1,22 +1,23 @@
-import { useState } from 'react';
-import { DeckCard, YugiohCard, ExportSettings as Settings } from '@/types/card';
-import { DeckSection } from './DeckSection';
-import { CardSearchPanel } from './CardSearchPanel';
-import { ExportSettings } from '@/components/export/ExportSettings';
-import { CardDetailModal } from '@/components/cards/CardDetailModal';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Settings2, Search } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState } from "react";
+import { DeckCard, YugiohCard } from "@/types/card";
+import { DeckSection } from "./DeckSection";
+import { CardSearchPanel } from "./CardSearchPanel";
+import { CardDetailModal } from "@/components/cards/CardDetailModal";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
+import { toast } from "sonner";
 
 interface DeckBuilderLayoutProps {
   cards: DeckCard[];
-  settings: Settings;
-  onSettingsChange: (settings: Settings) => void;
-  onExport: () => void;
-  exporting: boolean;
-  onAddCard: (card: YugiohCard, section: 'main' | 'extra' | 'side') => void;
-  onRemoveCard: (cardId: number, section: 'main' | 'extra' | 'side') => void;
+  onAddCard: (card: YugiohCard, section: "main" | "extra" | "side") => void;
+  onRemoveCard: (cardId: number, section: "main" | "extra" | "side") => void;
   getTotalCardCount: () => number;
 }
 
@@ -24,19 +25,15 @@ interface DeckBuilderLayoutProps {
 const isExtraDeckMonster = (card: YugiohCard): boolean => {
   const type = card.type.toLowerCase();
   return (
-    type.includes('fusion') ||
-    type.includes('synchro') ||
-    type.includes('xyz') ||
-    type.includes('link')
+    type.includes("fusion") ||
+    type.includes("synchro") ||
+    type.includes("xyz") ||
+    type.includes("link")
   );
 };
 
 export function DeckBuilderLayout({
   cards,
-  settings,
-  onSettingsChange,
-  onExport,
-  exporting,
   onAddCard,
   onRemoveCard,
   getTotalCardCount,
@@ -44,41 +41,41 @@ export function DeckBuilderLayout({
   const [selectedCard, setSelectedCard] = useState<YugiohCard | null>(null);
   const [showSearchSheet, setShowSearchSheet] = useState(false);
 
-  const mainDeck = cards.filter((c) => c.section === 'main');
-  const extraDeck = cards.filter((c) => c.section === 'extra');
-  const sideDeck = cards.filter((c) => c.section === 'side');
+  const mainDeck = cards.filter((c) => c.section === "main");
+  const extraDeck = cards.filter((c) => c.section === "extra");
+  const sideDeck = cards.filter((c) => c.section === "side");
 
   const mainDeckCount = mainDeck.reduce((sum, c) => sum + c.quantity, 0);
   const extraDeckCount = extraDeck.reduce((sum, c) => sum + c.quantity, 0);
   const sideDeckCount = sideDeck.reduce((sum, c) => sum + c.quantity, 0);
 
-  const handleDrop = (card: YugiohCard, section: 'main' | 'extra' | 'side') => {
+  const handleDrop = (card: YugiohCard, section: "main" | "extra" | "side") => {
     onAddCard(card, section);
   };
 
   // Smart quick add with overflow to side deck
   const handleQuickAdd = (card: YugiohCard) => {
     const isExtra = isExtraDeckMonster(card);
-    
+
     if (isExtra) {
       // Extra deck monster
       if (extraDeckCount < 15) {
-        onAddCard(card, 'extra');
+        onAddCard(card, "extra");
       } else if (sideDeckCount < 15) {
-        onAddCard(card, 'side');
-        toast.info('Extra Deck đầy, đã thêm vào Side Deck');
+        onAddCard(card, "side");
+        toast.info("Extra Deck đầy, đã thêm vào Side Deck");
       } else {
-        toast.error('Extra Deck và Side Deck đã đầy');
+        toast.error("Extra Deck và Side Deck đã đầy");
       }
     } else {
       // Main deck card
       if (mainDeckCount < 60) {
-        onAddCard(card, 'main');
+        onAddCard(card, "main");
       } else if (sideDeckCount < 15) {
-        onAddCard(card, 'side');
-        toast.info('Main Deck đầy, đã thêm vào Side Deck');
+        onAddCard(card, "side");
+        toast.info("Main Deck đầy, đã thêm vào Side Deck");
       } else {
-        toast.error('Main Deck và Side Deck đã đầy');
+        toast.error("Main Deck và Side Deck đã đầy");
       }
     }
   };
@@ -116,23 +113,8 @@ export function DeckBuilderLayout({
         />
       </div>
 
-      {/* Right: Search + Export - Desktop */}
+      {/* Right: Search Panel - Desktop */}
       <div className="hidden lg:flex flex-col gap-3 border-l pl-4 min-h-0">
-        {/* Export Settings at top */}
-        <div className="border-b pb-3">
-          <div className="flex items-center gap-2 mb-3">
-            <Settings2 className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Cài đặt xuất file</span>
-          </div>
-          <ExportSettings
-            settings={settings}
-            onSettingsChange={onSettingsChange}
-            onExport={onExport}
-            loading={exporting}
-            cardCount={getTotalCardCount()}
-          />
-        </div>
-
         {/* Search Panel */}
         <div className="flex-1 min-h-0">
           <CardSearchPanel
