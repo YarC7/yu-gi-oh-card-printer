@@ -1,29 +1,30 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
-import { 
-  Upload, 
-  Search, 
-  FileText, 
-  History, 
-  LogOut, 
+import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  Upload,
+  Search,
+  FileText,
+  History,
+  LogOut,
   User,
   Menu,
-  X
-} from 'lucide-react';
-import { useState } from 'react';
+  X,
+} from "lucide-react";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
+import logo from "/logo.png";
 
 const navItems = [
-  { path: '/search', label: 'Tìm bài', icon: Search },
-  { path: '/deck-builder', label: 'Deck Builder', icon: FileText },
-  { path: '/history', label: 'Lịch sử', icon: History },
+  { path: "/search", label: "Tìm bài", icon: Search },
+  { path: "/deck-builder", label: "Deck Builder", icon: FileText },
+  { path: "/history", label: "Lịch sử", icon: History },
 ];
 
 export function Header() {
@@ -38,7 +39,7 @@ export function Header() {
           <Link to="/" className="flex items-center gap-2">
             <div className="flex h-12 w-12 items-center justify-center">
               <img
-                src="/logo.png"
+                src={logo}
                 alt="Yugioh Card Printer"
                 className="w-full h-full rounded-lg shadow-md"
               />
@@ -55,7 +56,7 @@ export function Header() {
               return (
                 <Link key={item.path} to={item.path}>
                   <Button
-                    variant={isActive ? 'secondary' : 'ghost'}
+                    variant={isActive ? "secondary" : "ghost"}
                     size="sm"
                     className="gap-2"
                   >
@@ -134,7 +135,7 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <Button
-                    variant={isActive ? 'secondary' : 'ghost'}
+                    variant={isActive ? "secondary" : "ghost"}
                     className="w-full justify-start gap-2"
                   >
                     <Icon className="h-4 w-4" />
