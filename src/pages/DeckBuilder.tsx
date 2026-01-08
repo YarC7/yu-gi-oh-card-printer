@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { DeckBuilderLayout } from "@/components/deck/DeckBuilderLayout";
 import { AddCustomCardModal } from "@/components/cards/AddCustomCardModal";
+import { CardDetailModal } from "@/components/cards/CardDetailModal";
 import { ProgressDialog } from "@/components/ui/progress-dialog";
 import { ExportSettings } from "@/components/export/ExportSettings";
 import { FileUpload } from "@/components/upload/FileUpload";
@@ -37,6 +38,7 @@ import {
   Download,
   Settings as SettingsIcon,
   Upload,
+  Shuffle,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { Link } from "react-router-dom";
@@ -61,6 +63,10 @@ export default function DeckBuilder() {
   const [showCustomCardModal, setShowCustomCardModal] = useState(false);
   const [showExportSettingsModal, setShowExportSettingsModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [testHand, setTestHand] = useState<YugiohCard[]>([]);
+  const [showTestHandModal, setShowTestHandModal] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<YugiohCard | null>(null);
+  const [drawnCards, setDrawnCards] = useState<Set<number>>(new Set()); // Track drawn card IDs
 
   // Progress state
   const [exportProgress, setExportProgress] = useState({
@@ -76,6 +82,60 @@ export default function DeckBuilder() {
     stage: "",
   });
   const [showImportProgress, setShowImportProgress] = useState(false);
+
+  const generateTestHand = () => {
+    const mainDeckCards = deck.cards.filter((card) => card.section === "main");
+    if (mainDeckCards.length < 5) {
+      toast.error("Main Deck cần ít nhất 5 bài để test hand");
+      return;
+    }
+
+    // Create a flat array with card quantities
+    const cardPool: YugiohCard[] = [];
+    mainDeckCards.forEach((deckCard) => {
+      for (let i = 0; i < deckCard.quantity; i++) {
+        cardPool.push(deckCard.card);
+      }
+    });
+
+    // Shuffle and pick 5 cards
+    const shuffled = [...cardPool].sort(() => Math.random() - 0.5);
+    const hand = shuffled.slice(0, 5);
+
+    // Track drawn card IDs to avoid duplicates in +1 draws
+    const drawnIds = new Set(hand.map((card) => card.id));
+    setDrawnCards(drawnIds);
+
+    setTestHand(hand);
+    setShowTestHandModal(true);
+  };
+
+  const drawAdditionalCard = () => {
+    const mainDeckCards = deck.cards.filter((card) => card.section === "main");
+
+    // Create a flat array with card quantities, excluding already drawn cards
+    const cardPool: YugiohCard[] = [];
+    mainDeckCards.forEach((deckCard) => {
+      for (let i = 0; i < deckCard.quantity; i++) {
+        if (!drawnCards.has(deckCard.card.id)) {
+          cardPool.push(deckCard.card);
+        }
+      }
+    });
+
+    if (cardPool.length === 0) {
+      toast.error("Không còn bài nào để rút thêm");
+      return;
+    }
+
+    // Pick one random card
+    const randomIndex = Math.floor(Math.random() * cardPool.length);
+    const newCard = cardPool[randomIndex];
+
+    // Add to hand and track as drawn
+    setTestHand((prev) => [...prev, newCard]);
+    setDrawnCards((prev) => new Set([...prev, newCard.id]));
+  };
 
   const handleFileSelect = async (file: File) => {
     setShowImportProgress(true);
@@ -383,6 +443,16 @@ export default function DeckBuilder() {
               <PlusCircle className="h-4 w-4" />
               <span className="hidden sm:inline">Thêm custom</span>
             </Button>{" "}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={generateTestHand}
+              disabled={getTotalCardCount() < 5}
+              className="gap-1.5"
+            >
+              <Shuffle className="h-4 w-4" />
+              <span className="hidden sm:inline">Test Hand</span>
+            </Button>{" "}
             <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
@@ -442,6 +512,63 @@ export default function DeckBuilder() {
           </div>
         </div>
 
+        {/* Test Hand Modal */}
+        <Dialog open={showTestHandModal} onOpenChange={setShowTestHandModal}>
+          <DialogContent className="sm:max-w-[900px]">
+            <DialogHeader>
+              <DialogTitle>
+                Test Hand - {testHand.length} bài ngẫu nhiên
+              </DialogTitle>
+            </DialogHeader>
+            <div
+              className={`grid gap-2 mt-4 ${
+                testHand.length <= 5
+                  ? "grid-cols-5"
+                  : testHand.length <= 10
+                  ? "grid-cols-5"
+                  : "grid-cols-6"
+              }`}
+            >
+              {testHand.map((card, index) => (
+                <div
+                  key={`${card.id}-${index}`}
+                  className="flex flex-col items-center"
+                >
+                  <img
+                    src={card.card_images[0]?.image_url}
+                    alt={card.name}
+                    className="w-full max-w-[160px] rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => setSelectedCard(card)}
+                  />
+                  <span
+                    className="text-xs text-center mt-1 line-clamp-2"
+                    title={card.name}
+                  >
+                    {card.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-center gap-2 mt-4">
+              <Button
+                onClick={generateTestHand}
+                variant="outline"
+                className="gap-2"
+              >
+                <Shuffle className="h-4 w-4" />
+                Rút lại (5 bài)
+              </Button>
+              <Button
+                onClick={drawAdditionalCard}
+                variant="outline"
+                className="gap-2"
+              >
+                +1
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {!user && (
           <div className="mb-4 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
             <Link to="/auth" className="text-primary hover:underline">
@@ -482,6 +609,14 @@ export default function DeckBuilder() {
         description={importProgress.stage}
         progress={importProgress.current}
         total={importProgress.total}
+      />
+
+      {/* Card Detail Modal for Test Hand */}
+      <CardDetailModal
+        card={selectedCard}
+        open={!!selectedCard}
+        onOpenChange={(open) => !open && setSelectedCard(null)}
+        onAddCard={() => {}} // Test hand modal doesn't need add card functionality
       />
     </div>
   );
