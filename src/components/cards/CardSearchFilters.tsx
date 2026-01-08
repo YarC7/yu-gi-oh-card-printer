@@ -49,6 +49,23 @@ function convertFiltersToAPI(state: CardFilterState, name?: string): Filters {
     }
   }
 
+  // Spell/Trap subtype (race parameter for spell/trap cards)
+  if (state.spellTrapTypes.length === 1) {
+    const spellTrapType = state.spellTrapTypes[0];
+    // Extract the race from the type (e.g., "Field Spell" -> "Field", "Counter Trap" -> "Counter")
+    const race = spellTrapType.replace(' Spell', '').replace(' Trap', '');
+    filters.race = race;
+    
+    // Also set the card type if not already set
+    if (!filters.type) {
+      if (spellTrapType.includes('Spell')) {
+        filters.type = 'Spell Card';
+      } else if (spellTrapType.includes('Trap')) {
+        filters.type = 'Trap Card';
+      }
+    }
+  }
+
   // Attribute
   if (state.attributes.length === 1) {
     filters.attribute = state.attributes[0];
