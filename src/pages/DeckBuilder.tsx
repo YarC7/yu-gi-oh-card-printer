@@ -100,6 +100,28 @@ export default function DeckBuilder() {
     }
   };
 
+  // Helper to load image as base64
+  const loadImageAsBase64 = (url: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        } else {
+          reject(new Error('Canvas context not available'));
+        }
+      };
+      img.onerror = () => reject(new Error('Image load failed'));
+      img.src = url;
+    });
+  };
+
   const handleExport = async () => {
     const cards = getAllCardsFlat();
     if (cards.length === 0) {
@@ -125,18 +147,15 @@ export default function DeckBuilder() {
         
         if (imgUrl) {
           try {
-            const response = await fetch(imgUrl);
-            const blob = await response.blob();
-            const base64 = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-            });
-            
+            const base64 = await loadImageAsBase64(imgUrl);
             pdf.addImage(base64, 'JPEG', x, y, cardW, cardH);
           } catch {
+            // Fallback: draw placeholder rectangle
             pdf.setFillColor(200, 200, 200);
             pdf.rect(x, y, cardW, cardH, 'F');
+            pdf.setFontSize(8);
+            pdf.setTextColor(100);
+            pdf.text(card.name.substring(0, 15), x + 0.2, y + cardH / 2);
           }
         }
 
