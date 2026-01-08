@@ -4,6 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+
+// Check if card is an Extra Deck monster (Fusion, Synchro, XYZ, Link)
+const isExtraDeckMonster = (card: YugiohCard): boolean => {
+  const type = card.type.toLowerCase();
+  return (
+    type.includes('fusion') ||
+    type.includes('synchro') ||
+    type.includes('xyz') ||
+    type.includes('link')
+  );
+};
 
 interface DeckSectionProps {
   title: string;
@@ -40,6 +52,19 @@ export function DeckSection({
     if (cardData) {
       try {
         const card = JSON.parse(cardData) as YugiohCard;
+        
+        // Validate Extra Deck: only Fusion, Synchro, XYZ, Link monsters allowed
+        if (section === 'extra' && !isExtraDeckMonster(card)) {
+          toast.error('Extra Deck chỉ chứa quái thú Fusion, Synchro, XYZ hoặc Link');
+          return;
+        }
+        
+        // Validate Main Deck: Extra Deck monsters cannot go here
+        if (section === 'main' && isExtraDeckMonster(card)) {
+          toast.error('Quái thú Fusion, Synchro, XYZ, Link phải vào Extra Deck');
+          return;
+        }
+        
         onDrop(card, section);
       } catch (err) {
         console.error('Invalid drop data:', err);
