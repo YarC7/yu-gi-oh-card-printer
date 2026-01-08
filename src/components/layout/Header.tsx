@@ -36,8 +36,12 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">
-              YP
+            <div className="flex h-12 w-12 items-center justify-center">
+              <img
+                src="/logo.png"
+                alt="Yugioh Card Printer"
+                className="w-full h-full rounded-lg shadow-md"
+              />
             </div>
             <span className="hidden font-semibold sm:inline-block">
               YGO Proxy Printer
