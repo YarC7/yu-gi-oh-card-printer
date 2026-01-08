@@ -21,6 +21,7 @@ interface AddCustomCardModalProps {
 export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomCardModalProps) {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const savingRef = useRef(false);
   
   // Basic info
   const [name, setName] = useState('');
