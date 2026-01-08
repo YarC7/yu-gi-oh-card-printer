@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { DeckCard, YugiohCard, Deck } from '@/types/card';
 
 export function useDeck() {
@@ -7,6 +7,25 @@ export function useDeck() {
     cards: [],
   });
 
+  // Load saved deck from sessionStorage
+  useEffect(() => {
+    const savedDeck = sessionStorage.getItem('loadDeck');
+    if (savedDeck) {
+      try {
+        const parsed = JSON.parse(savedDeck);
+        setDeck({
+          id: parsed.id,
+          name: parsed.name,
+          description: parsed.description,
+          cards: parsed.cards || [],
+        });
+        sessionStorage.removeItem('loadDeck');
+      } catch (e) {
+        console.error('Error loading deck:', e);
+      }
+    }
+  }, []);
+
   const addCard = useCallback((card: YugiohCard, section: 'main' | 'extra' | 'side' = 'main') => {
     setDeck((prev) => {
       const existingIndex = prev.cards.findIndex(
@@ -14,7 +33,6 @@ export function useDeck() {
       );
 
       if (existingIndex >= 0) {
-        // Increment quantity (max 3)
         const newCards = [...prev.cards];
         if (newCards[existingIndex].quantity < 3) {
           newCards[existingIndex] = {
@@ -24,7 +42,6 @@ export function useDeck() {
         }
         return { ...prev, cards: newCards };
       } else {
-        // Add new card
         return {
           ...prev,
           cards: [...prev.cards, { card, quantity: 1, section }],
