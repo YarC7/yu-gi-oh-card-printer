@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FilterMenu, CardFilterState, DEFAULT_FILTER_STATE } from './FilterMenu';
+// Using Sheet component for filter panel - no Accordion/Select components
 import { CardSearchFilters as Filters } from '@/types/card';
 import { Search, RotateCcw, Loader2, Filter, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
