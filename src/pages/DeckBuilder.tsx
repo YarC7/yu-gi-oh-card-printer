@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/Header';
 import { DeckPreview } from '@/components/deck/DeckPreview';
 import { ExportSettings } from '@/components/export/ExportSettings';
 import { PrintPreview } from '@/components/export/PrintPreview';
+import { AddCustomCardModal } from '@/components/cards/AddCustomCardModal';
 import { useDeck } from '@/hooks/useDeck';
 import { useAuth } from '@/hooks/useAuth';
 import { DEFAULT_EXPORT_SETTINGS, ExportSettings as Settings, YugiohCard, DeckCard } from '@/types/card';
@@ -10,7 +11,7 @@ import { saveDeck, updateDeck, saveGenerationHistory } from '@/lib/deck-service'
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Trash2, Save, Plus } from 'lucide-react';
+import { Trash2, Save, Plus, PlusCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { Link } from 'react-router-dom';
 
@@ -21,6 +22,7 @@ export default function DeckBuilder() {
   const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null);
+  const [showCustomCardModal, setShowCustomCardModal] = useState(false);
 
   useEffect(() => {
     const imported = sessionStorage.getItem('importedDeck');
@@ -196,9 +198,17 @@ export default function DeckBuilder() {
             <Link to="/search">
               <Button variant="outline" size="sm">
                 <Plus className="h-4 w-4 mr-2" />
-                Thêm bài
+                Tìm bài
               </Button>
             </Link>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowCustomCardModal(true)}
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Thêm bài custom
+            </Button>
             <Button 
               variant="outline" 
               size="sm"
@@ -238,6 +248,12 @@ export default function DeckBuilder() {
           </div>
         </div>
       </main>
+
+      <AddCustomCardModal
+        open={showCustomCardModal}
+        onOpenChange={setShowCustomCardModal}
+        onAddCard={addCard}
+      />
     </div>
   );
 }
