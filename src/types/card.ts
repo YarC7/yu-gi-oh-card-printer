@@ -43,17 +43,15 @@ export interface CardPrice {
 
 export interface BanListInfo {
   cardId: number;
-  ban_tcg?: 'Banned' | 'Limited' | 'Semi-Limited';
-  ban_ocg?: 'Banned' | 'Limited' | 'Semi-Limited';
-  ban_goat?: 'Banned' | 'Limited' | 'Semi-Limited';
+  ban_tcg?: "Banned" | "Limited" | "Semi-Limited";
+  ban_ocg?: "Banned" | "Limited" | "Semi-Limited";
+  ban_goat?: "Banned" | "Limited" | "Semi-Limited";
 }
-
-
 
 export interface DeckCard {
   card: YugiohCard;
   quantity: number;
-  section: 'main' | 'extra' | 'side';
+  section: "main" | "extra" | "side";
 }
 
 export interface Deck {
@@ -88,7 +86,7 @@ export interface ExportSettings {
   marginBottom: number;
   marginLeft: number;
   gap: number;
-  format: 'docx' | 'pdf';
+  format: "docx" | "pdf";
 }
 
 export const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
@@ -101,5 +99,5 @@ export const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
   marginBottom: 1,
   marginLeft: 1,
   gap: 0.2,
-  format: 'pdf',
+  format: "pdf",
 };

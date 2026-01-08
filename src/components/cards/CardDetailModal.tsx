@@ -1,15 +1,15 @@
-import { YugiohCard } from '@/types/card';
+import { YugiohCard } from "@/types/card";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
-import { BanStatusBadge } from './BanStatusBadge';
-import { useBanList } from '@/hooks/useBanList';
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { BanStatusBadge } from "./BanStatusBadge";
+import { useBanList } from "@/hooks/useBanList";
 
 interface CardDetailModalProps {
   card: YugiohCard | null;
@@ -18,14 +18,19 @@ interface CardDetailModalProps {
   onAddCard?: (card: YugiohCard) => void;
 }
 
-export function CardDetailModal({ card, open, onOpenChange, onAddCard }: CardDetailModalProps) {
+export function CardDetailModal({
+  card,
+  open,
+  onOpenChange,
+  onAddCard,
+}: CardDetailModalProps) {
   const { getBanStatus } = useBanList();
 
   if (!card) return null;
 
-  const isMonster = card.type.toLowerCase().includes('monster');
-  const isLink = card.type.toLowerCase().includes('link');
-  const isPendulum = card.type.toLowerCase().includes('pendulum');
+  const isMonster = card.type.toLowerCase().includes("monster");
+  const isLink = card.type.toLowerCase().includes("link");
+  const isPendulum = card.type.toLowerCase().includes("pendulum");
   const banStatus = getBanStatus(card.id);
 
   return (
@@ -43,10 +48,7 @@ export function CardDetailModal({ card, open, onOpenChange, onAddCard }: CardDet
               className="w-full rounded-lg shadow-md"
             />
             {onAddCard && (
-              <Button
-                className="w-full mt-3"
-                onClick={() => onAddCard(card)}
-              >
+              <Button className="w-full mt-3" onClick={() => onAddCard(card)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Thêm vào deck
               </Button>
@@ -60,9 +62,7 @@ export function CardDetailModal({ card, open, onOpenChange, onAddCard }: CardDet
                 <Badge variant="outline">{card.attribute}</Badge>
               )}
               <Badge variant="outline">{card.race}</Badge>
-              {card.archetype && (
-                <Badge>{card.archetype}</Badge>
-              )}
+              {card.archetype && <Badge>{card.archetype}</Badge>}
               <BanStatusBadge banStatus={banStatus} />
             </div>
 
@@ -104,7 +104,7 @@ export function CardDetailModal({ card, open, onOpenChange, onAddCard }: CardDet
             {isLink && card.linkmarkers && (
               <div className="text-sm">
                 <span className="text-muted-foreground">Link Arrows: </span>
-                <span>{card.linkmarkers.join(', ')}</span>
+                <span>{card.linkmarkers.join(", ")}</span>
               </div>
             )}
 
