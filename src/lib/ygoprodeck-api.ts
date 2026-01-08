@@ -134,19 +134,28 @@ export async function getCardsByIds(
 
 export async function getBanList(): Promise<BanListInfo[]> {
   try {
-    const response = await fetch(`${API_BASE}/cardinfo.php?banlist=tcg`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // Fetch both TCG and OCG banlists to get complete data
+    const [tcgResponse, ocgResponse] = await Promise.all([
+      fetch(`${API_BASE}/cardinfo.php?banlist=tcg`),
+      fetch(`${API_BASE}/cardinfo.php?banlist=ocg`),
+    ]);
+
+    if (!tcgResponse.ok || !ocgResponse.ok) {
+      throw new Error(`HTTP error fetching banlists`);
     }
 
-    const data = await response.json();
+    const [tcgData, ocgData] = await Promise.all([
+      tcgResponse.json(),
+      ocgResponse.json(),
+    ]);
 
-    // Transform the API response to our BanListInfo format
-    const banList: BanListInfo[] = [];
+    // Create a map to merge ban info from both formats
+    const banMap = new Map<number, BanListInfo>();
 
-    data.data.forEach((card: any) => {
-      if (card.banlist_info) {
-        banList.push({
+    // Process TCG banlist
+    tcgData.data?.forEach((card: any) => {
+      if (card.banlist_info?.ban_tcg) {
+        banMap.set(card.id, {
           cardId: card.id,
           ban_tcg: card.banlist_info.ban_tcg,
           ban_ocg: card.banlist_info.ban_ocg,
@@ -155,12 +164,24 @@ export async function getBanList(): Promise<BanListInfo[]> {
       }
     });
 
-    console.log(
-      "Ban list loaded:",
-      banList.filter((b) => b.ban_tcg === "Semi-Limited")
-    );
+    // Process OCG banlist and merge with existing entries
+    ocgData.data?.forEach((card: any) => {
+      if (card.banlist_info?.ban_ocg) {
+        const existing = banMap.get(card.id);
+        if (existing) {
+          existing.ban_ocg = card.banlist_info.ban_ocg;
+        } else {
+          banMap.set(card.id, {
+            cardId: card.id,
+            ban_tcg: card.banlist_info.ban_tcg,
+            ban_ocg: card.banlist_info.ban_ocg,
+            ban_goat: card.banlist_info.ban_goat,
+          });
+        }
+      }
+    });
 
-    return banList;
+    return Array.from(banMap.values());
   } catch (error) {
     console.error("Error fetching ban list:", error);
     return [];
