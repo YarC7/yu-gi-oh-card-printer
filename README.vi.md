@@ -8,7 +8,9 @@ Một ứng dụng web để tạo và in thẻ Yu-Gi-Oh! tùy chỉnh. Ứng d�
 
 - 🔍 Tìm kiếm thẻ từ cơ sở dữ liệu YGOPRODeck
 - 🎴 Xem chi tiết thẻ với hình ảnh chất lượng cao
-- 🃏 Xây dựng bộ bài với các phần Main Deck, Extra Deck, Side Deck
+- � Kiểm tra trạng thái cấm của thẻ (TCG/OCG)
+- ➕ Tạo và quản lý thẻ tùy chỉnh
+- �🃏 Xây dựng bộ bài với các phần Main Deck, Extra Deck, Side Deck
 - 📤 Xuất và in thẻ với cài đặt tùy chỉnh
 - 🎨 Giao diện đẹp với Tailwind CSS và shadcn-ui
 - 📱 Responsive design cho mobile và desktop
@@ -66,6 +68,14 @@ bun run dev
 ```
 
 Ứng dụng sẽ chạy tại `http://localhost:5173`
+
+## Cách sử dụng
+
+1. Đăng ký hoặc đăng nhập vào tài khoản của bạn.
+2. Tìm kiếm thẻ bằng bảng tìm kiếm.
+3. Thêm thẻ vào bộ bài bằng cách nhấp vào chúng.
+4. Sử dụng trình xây dựng bộ bài để sắp xếp thẻ.
+5. Xuất bộ bài để in hoặc chia sẻ.
 
 ## Build và Deploy
 

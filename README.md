@@ -8,7 +8,9 @@ Read this in [English](README.md) | [Tiếng Việt](README.vi.md)
 
 - 🔍 Search cards from YGOPRODeck database
 - 🎴 View card details with high-quality images
-- 🃏 Build decks with Main Deck, Extra Deck, Side Deck sections
+- � Check card ban status (TCG/OCG)
+- ➕ Create and manage custom cards
+- �🃏 Build decks with Main Deck, Extra Deck, Side Deck sections
 - 📤 Export and print cards with custom settings
 - 🎨 Beautiful UI with Tailwind CSS and shadcn-ui
 - 📱 Responsive design for mobile and desktop
@@ -66,6 +68,14 @@ bun run dev
 ```
 
 The application will run at `http://localhost:5173`
+
+## Usage
+
+1. Sign up or log in to your account.
+2. Search for cards using the search panel.
+3. Add cards to your deck by clicking on them.
+4. Use the deck builder to organize your cards.
+5. Export your deck for printing or sharing.
 
 ## Build and Deploy
 
