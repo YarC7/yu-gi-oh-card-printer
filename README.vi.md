@@ -6,7 +6,7 @@ Một ứng dụng web để tạo và in thẻ Yu-Gi-Oh! tùy chỉnh. Ứng d�
 
 ## Tính năng
 
-- 🔍 Tìm kiếm thẻ từ cơ sở dữ liệu YGOPRODeck
+- 🔍 Tìm kiếm thẻ từ cơ sở dữ liệu YGOPRODeck với phân trang (50 thẻ/trang)
 - 🎴 Xem chi tiết thẻ với hình ảnh chất lượng cao
 - � Kiểm tra trạng thái cấm của thẻ (TCG/OCG)
 - ➕ Tạo và quản lý thẻ tùy chỉnh
@@ -16,6 +16,8 @@ Một ứng dụng web để tạo và in thẻ Yu-Gi-Oh! tùy chỉnh. Ứng d�
 - 📱 Responsive design cho mobile và desktop
 - 🔐 Xác thực người dùng với Supabase
 - 💾 Lưu trữ bộ bài trong cơ sở dữ liệu
+- ⚡ Tối ưu hiệu suất với cache 24 giờ và debounce 300ms
+- 🔄 Grid thẻ ảo hóa cho hiệu suất cao
 
 ## Công nghệ sử dụng
 
@@ -72,10 +74,20 @@ bun run dev
 ## Cách sử dụng
 
 1. Đăng ký hoặc đăng nhập vào tài khoản của bạn.
-2. Tìm kiếm thẻ bằng bảng tìm kiếm.
+2. Tìm kiếm thẻ bằng bảng tìm kiếm (hỗ trợ phân trang với 50 thẻ/trang).
 3. Thêm thẻ vào bộ bài bằng cách nhấp vào chúng.
 4. Sử dụng trình xây dựng bộ bài để sắp xếp thẻ.
 5. Xuất bộ bài để in hoặc chia sẻ.
+
+## Tối ưu hiệu suất
+
+Ứng dụng được tối ưu để mang lại trải nghiệm người dùng mượt mà:
+
+- **Cache thông minh**: Dữ liệu API được cache trong 24 giờ để giảm thời gian tải
+- **Debounce tối ưu**: Thời gian chờ tìm kiếm giảm xuống 300ms cho phản hồi nhanh hơn
+- **Grid ảo hóa**: Chỉ render thẻ hiển thị trên màn hình để hiệu suất cao với danh sách lớn
+- **Phân trang**: Chia kết quả tìm kiếm thành các trang 50 thẻ để dễ điều hướng
+- **Lazy loading**: Hình ảnh thẻ được tải khi cần thiết để tiết kiệm băng thông
 
 ## Build và Deploy
 
