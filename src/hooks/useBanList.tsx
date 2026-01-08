@@ -32,7 +32,7 @@ export function BanListProvider({ children }: { children: ReactNode }) {
     const fetchBanList = async () => {
       try {
         setLoading(true);
-        const data = await getBanList();
+        const data = await getBanList(format);
         setBanList(data);
         setError(null);
       } catch (err) {
@@ -44,7 +44,7 @@ export function BanListProvider({ children }: { children: ReactNode }) {
     };
 
     fetchBanList();
-  }, []);
+  }, [format]);
 
   const getBanStatus = (
     cardId: number,
