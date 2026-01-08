@@ -27,6 +27,10 @@ interface CardSearchFiltersProps {
 export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps) {
   const [filters, setFilters] = useState<Filters>({});
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const onSearchRef = useRef(onSearch);
+  
+  // Keep ref updated
+  onSearchRef.current = onSearch;
 
   // Debounced search on filter change
   useEffect(() => {
@@ -40,7 +44,7 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
     
     if (hasNameFilter || hasOtherFilters) {
       debounceRef.current = setTimeout(() => {
-        onSearch(filters);
+        onSearchRef.current(filters);
       }, 400);
     }
 
@@ -49,7 +53,7 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
         clearTimeout(debounceRef.current);
       }
     };
-  }, [filters, onSearch]);
+  }, [filters]);
 
   const handleReset = () => {
     setFilters({});
