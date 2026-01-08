@@ -1,46 +1,54 @@
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Ban } from "lucide-react";
 
 interface BanStatusBadgeProps {
   banStatus: "Banned" | "Limited" | "Semi-Limited" | null;
   className?: string;
+  size?: "sm" | "md" | "lg";
 }
 
-export function BanStatusBadge({ banStatus, className }: BanStatusBadgeProps) {
+export function BanStatusBadge({ banStatus, className, size = "md" }: BanStatusBadgeProps) {
   if (!banStatus) return null;
 
-  const getBadgeVariant = (status: string) => {
-    switch (status) {
-      case "Banned":
-        return "destructive";
-      case "Limited":
-        return "secondary";
-      case "Semi-Limited":
-        return "outline";
-      default:
-        return "secondary";
-    }
+  const sizeClasses = {
+    sm: "w-4 h-4 text-[10px]",
+    md: "w-5 h-5 text-xs",
+    lg: "w-6 h-6 text-sm",
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "Banned":
-        return "Banned";
-      case "Limited":
-        return "Limited";
-      case "Semi-Limited":
-        return "Semi-Limited";
-      default:
-        return status;
-    }
+  const iconSizeClasses = {
+    sm: "w-2.5 h-2.5",
+    md: "w-3 h-3",
+    lg: "w-4 h-4",
   };
+
+  if (banStatus === "Banned") {
+    return (
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-full bg-red-600 text-white shadow-md",
+          sizeClasses[size],
+          className
+        )}
+      >
+        <Ban className={iconSizeClasses[size]} strokeWidth={3} />
+      </div>
+    );
+  }
+
+  const number = banStatus === "Limited" ? "1" : "2";
+  const bgColor = banStatus === "Limited" ? "bg-red-600" : "bg-yellow-500";
 
   return (
-    <Badge
-      variant={getBadgeVariant(banStatus)}
-      className={cn("text-xs px-1.5 py-0.5", className)}
+    <div
+      className={cn(
+        "flex items-center justify-center rounded-full text-white font-bold shadow-md",
+        sizeClasses[size],
+        bgColor,
+        className
+      )}
     >
-      {getStatusText(banStatus)}
-    </Badge>
+      {number}
+    </div>
   );
 }
