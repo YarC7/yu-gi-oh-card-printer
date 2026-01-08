@@ -98,8 +98,8 @@ export default function DeckBuilder() {
   ): boolean => {
     const banStatus = getBanStatus(card.id);
 
-    // Check if card is banned
-    if (banStatus === "Banned") {
+    // Check if card is Forbidden
+    if (banStatus === "Forbidden") {
       toast.error(`Bài "${card.name}" bị cấm trong ${format} ban list`);
       return false;
     }

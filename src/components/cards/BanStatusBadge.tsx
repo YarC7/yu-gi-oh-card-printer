@@ -2,12 +2,16 @@ import { cn } from "@/lib/utils";
 import { Ban } from "lucide-react";
 
 interface BanStatusBadgeProps {
-  banStatus: "Banned" | "Limited" | "Semi-Limited" | null;
+  banStatus: "Forbidden" | "Limited" | "Semi-Limited" | null;
   className?: string;
   size?: "sm" | "md" | "lg";
 }
 
-export function BanStatusBadge({ banStatus, className, size = "md" }: BanStatusBadgeProps) {
+export function BanStatusBadge({
+  banStatus,
+  className,
+  size = "md",
+}: BanStatusBadgeProps) {
   if (!banStatus) return null;
 
   const sizeClasses = {
@@ -22,7 +26,7 @@ export function BanStatusBadge({ banStatus, className, size = "md" }: BanStatusB
     lg: "w-5 h-5",
   };
 
-  if (banStatus === "Banned") {
+  if (banStatus === "Forbidden") {
     return (
       <div
         className={cn(

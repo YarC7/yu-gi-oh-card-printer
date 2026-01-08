@@ -132,37 +132,72 @@ export async function getCardsByIds(
   return { cards: results, notFoundIds };
 }
 
-export async function getBanList(format: "TCG" | "OCG" = "TCG"): Promise<BanListInfo[]> {
+export async function getBanList(): Promise<BanListInfo[]> {
   try {
-    const response = await fetch(`${API_BASE}/cardinfo.php?banlist=${format.toLowerCase()}`);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // Fetch both TCG and OCG ban lists
+    const [tcgResponse, ocgResponse] = await Promise.all([
+      fetch(`${API_BASE}/cardinfo.php?banlist=tcg`),
+      fetch(`${API_BASE}/cardinfo.php?banlist=ocg`),
+    ]);
+
+    if (!tcgResponse.ok || !ocgResponse.ok) {
+      throw new Error(
+        `HTTP error! TCG: ${tcgResponse.status}, OCG: ${ocgResponse.status}`
+      );
     }
 
-    const data = await response.json();
-    const banList: BanListInfo[] = [];
+    const [tcgData, ocgData] = await Promise.all([
+      tcgResponse.json(),
+      ocgResponse.json(),
+    ]);
 
-    data.data?.forEach((card: any) => {
-      const banStatus = format === "TCG" 
-        ? card.banlist_info?.ban_tcg 
-        : card.banlist_info?.ban_ocg;
-      
-      if (banStatus) {
-        banList.push({
+    const banListMap = new Map<number, BanListInfo>();
+
+    // Process TCG data
+    tcgData.data?.forEach((card: any) => {
+      if (card.banlist_info?.ban_tcg) {
+        banListMap.set(card.id, {
           cardId: card.id,
-          ban_tcg: card.banlist_info?.ban_tcg,
-          ban_ocg: card.banlist_info?.ban_ocg,
-          ban_goat: card.banlist_info?.ban_goat,
+          ban_tcg: normalizeBanStatus(card.banlist_info.ban_tcg),
+          ban_ocg: undefined, // Will be filled from OCG data
+          ban_goat: card.banlist_info.ban_goat
+            ? normalizeBanStatus(card.banlist_info.ban_goat)
+            : undefined,
         });
       }
     });
 
-    return banList;
+    // Process OCG data and merge
+    ocgData.data?.forEach((card: any) => {
+      if (card.banlist_info?.ban_ocg) {
+        const existing = banListMap.get(card.id);
+        if (existing) {
+          existing.ban_ocg = normalizeBanStatus(card.banlist_info.ban_ocg);
+        } else {
+          banListMap.set(card.id, {
+            cardId: card.id,
+            ban_tcg: undefined,
+            ban_ocg: normalizeBanStatus(card.banlist_info.ban_ocg),
+            ban_goat: card.banlist_info.ban_goat
+              ? normalizeBanStatus(card.banlist_info.ban_goat)
+              : undefined,
+          });
+        }
+      }
+    });
+
+    return Array.from(banListMap.values());
   } catch (error) {
     console.error("Error fetching ban list:", error);
     return [];
   }
+}
+
+function normalizeBanStatus(
+  status: string
+): "Forbidden" | "Limited" | "Semi-Limited" {
+  if (status === "Forbidden") return "Forbidden";
+  return status as "Forbidden" | "Limited" | "Semi-Limited";
 }
 
 export async function getAllArchetypes(): Promise<string[]> {

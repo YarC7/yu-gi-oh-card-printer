@@ -43,9 +43,9 @@ export interface CardPrice {
 
 export interface BanListInfo {
   cardId: number;
-  ban_tcg?: "Banned" | "Limited" | "Semi-Limited";
-  ban_ocg?: "Banned" | "Limited" | "Semi-Limited";
-  ban_goat?: "Banned" | "Limited" | "Semi-Limited";
+  ban_tcg?: "Forbidden" | "Limited" | "Semi-Limited";
+  ban_ocg?: "Forbidden" | "Limited" | "Semi-Limited";
+  ban_goat?: "Forbidden" | "Limited" | "Semi-Limited";
 }
 
 export interface DeckCard {

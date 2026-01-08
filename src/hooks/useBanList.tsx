@@ -17,7 +17,7 @@ interface BanListContextType {
   getBanStatus: (
     cardId: number,
     format?: "TCG" | "OCG"
-  ) => "Banned" | "Limited" | "Semi-Limited" | null;
+  ) => "Forbidden" | "Limited" | "Semi-Limited" | null;
 }
 
 const BanListContext = createContext<BanListContextType | undefined>(undefined);
@@ -32,7 +32,7 @@ export function BanListProvider({ children }: { children: ReactNode }) {
     const fetchBanList = async () => {
       try {
         setLoading(true);
-        const data = await getBanList(format);
+        const data = await getBanList();
         setBanList(data);
         setError(null);
       } catch (err) {
@@ -44,12 +44,12 @@ export function BanListProvider({ children }: { children: ReactNode }) {
     };
 
     fetchBanList();
-  }, [format]);
+  }, []);
 
   const getBanStatus = (
     cardId: number,
     overrideFormat?: "TCG" | "OCG"
-  ): "Banned" | "Limited" | "Semi-Limited" | null => {
+  ): "Forbidden" | "Limited" | "Semi-Limited" | null => {
     const banInfo = banList.find((b) => b.cardId === cardId);
     if (!banInfo) return null;
     const currentFormat = overrideFormat || format;
