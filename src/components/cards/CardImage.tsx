@@ -47,8 +47,11 @@ export function CardImage({
       onClick={onClick}
     >
       {banStatus && (
-        <div className="absolute top-1 right-1 z-10">
-          <BanStatusBadge banStatus={banStatus} />
+        <div className="absolute top-0.5 right-0.5 z-10">
+          <BanStatusBadge 
+            banStatus={banStatus} 
+            size={size === "sm" ? "sm" : size === "md" ? "md" : "lg"}
+          />
         </div>
       )}
 

@@ -11,22 +11,22 @@ export function BanStatusBadge({ banStatus, className, size = "md" }: BanStatusB
   if (!banStatus) return null;
 
   const sizeClasses = {
-    sm: "w-4 h-4 text-[10px]",
-    md: "w-5 h-5 text-xs",
-    lg: "w-6 h-6 text-sm",
+    sm: "w-5 h-5 text-xs",
+    md: "w-6 h-6 text-sm",
+    lg: "w-8 h-8 text-base",
   };
 
   const iconSizeClasses = {
-    sm: "w-2.5 h-2.5",
-    md: "w-3 h-3",
-    lg: "w-4 h-4",
+    sm: "w-3 h-3",
+    md: "w-4 h-4",
+    lg: "w-5 h-5",
   };
 
   if (banStatus === "Banned") {
     return (
       <div
         className={cn(
-          "flex items-center justify-center rounded-full bg-red-600 text-white shadow-md",
+          "flex items-center justify-center rounded-full bg-red-600 text-white shadow-lg border-2 border-white",
           sizeClasses[size],
           className
         )}
@@ -42,7 +42,7 @@ export function BanStatusBadge({ banStatus, className, size = "md" }: BanStatusB
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-full text-white font-bold shadow-md",
+        "flex items-center justify-center rounded-full text-white font-bold shadow-lg border-2 border-white",
         sizeClasses[size],
         bgColor,
         className
