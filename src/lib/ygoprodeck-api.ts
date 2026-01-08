@@ -5,7 +5,12 @@ const API_BASE = 'https://db.ygoprodeck.com/api/v7';
 export async function searchCards(filters: CardSearchFilters): Promise<YugiohCard[]> {
   const params = new URLSearchParams();
   
-  if (filters.name) params.append('fname', filters.name);
+  // Search by name OR description using fname for partial name match
+  if (filters.name) {
+    params.append('fname', filters.name);
+    // Also search in description for broader results
+    params.append('desc', filters.name);
+  }
   if (filters.type) params.append('type', filters.type);
   if (filters.attribute) params.append('attribute', filters.attribute);
   if (filters.race) params.append('race', filters.race);
