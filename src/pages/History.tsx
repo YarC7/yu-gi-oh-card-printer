@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Header } from '@/components/layout/Header';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,22 +10,24 @@ import { getUserDecks, getGenerationHistory, deleteDeck, SavedDeckRow } from '@/
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+interface GenerationHistoryItem {
+  id: string;
+  user_id: string;
+  deck_name: string;
+  card_count: number;
+  export_format: string;
+  created_at: string;
+  deck_id: string | null;
+}
+
 export default function History() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [decks, setDecks] = useState<SavedDeckRow[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<GenerationHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      loadData();
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     
@@ -37,7 +39,15 @@ export default function History() {
     setDecks(decksData);
     setHistory(historyData);
     setLoading(false);
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, loadData]);
 
   const handleDeleteDeck = async (deckId: string) => {
     const success = await deleteDeck(deckId);

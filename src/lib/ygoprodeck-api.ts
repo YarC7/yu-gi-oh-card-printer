@@ -2,6 +2,15 @@ import { YugiohCard, CardSearchFilters, BanListInfo } from "@/types/card";
 
 const API_BASE = "https://db.ygoprodeck.com/api/v7";
 
+interface BanlistCardData {
+  id: number;
+  banlist_info?: {
+    ban_tcg?: string;
+    ban_ocg?: string;
+    ban_goat?: string;
+  };
+}
+
 export async function searchCards(
   filters: CardSearchFilters
 ): Promise<YugiohCard[]> {
@@ -154,7 +163,7 @@ export async function getBanList(): Promise<BanListInfo[]> {
     const banListMap = new Map<number, BanListInfo>();
 
     // Process TCG data
-    tcgData.data?.forEach((card: any) => {
+    tcgData.data?.forEach((card: BanlistCardData) => {
       if (card.banlist_info?.ban_tcg) {
         banListMap.set(card.id, {
           cardId: card.id,
@@ -168,7 +177,7 @@ export async function getBanList(): Promise<BanListInfo[]> {
     });
 
     // Process OCG data and merge
-    ocgData.data?.forEach((card: any) => {
+    ocgData.data?.forEach((card: BanlistCardData) => {
       if (card.banlist_info?.ban_ocg) {
         const existing = banListMap.get(card.id);
         if (existing) {
