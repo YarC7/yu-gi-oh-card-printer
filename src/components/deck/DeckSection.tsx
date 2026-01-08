@@ -75,7 +75,7 @@ export function DeckSection({
   return (
     <div
       className={cn(
-        'space-y-2 p-3 rounded-lg border-2 border-dashed transition-colors',
+        'space-y-2 p-2 sm:p-3 rounded-lg border-2 border-dashed transition-colors',
         'hover:border-primary/50 hover:bg-primary/5',
         className
       )}
@@ -93,11 +93,11 @@ export function DeckSection({
       </div>
 
       {cards.length === 0 ? (
-        <div className="py-8 text-center text-sm text-muted-foreground">
+        <div className="py-6 sm:py-8 text-center text-sm text-muted-foreground">
           Kéo thả bài vào đây
         </div>
       ) : (
-        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-8 xl:grid-cols-10 gap-1">
+        <div className="grid grid-cols-5 xs:grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-8 xl:grid-cols-10 gap-1">
           {cards.map((deckCard) => (
             <div key={deckCard.card.id} className="relative group">
               <CardImage
@@ -107,20 +107,20 @@ export function DeckSection({
                 onClick={() => onCardClick?.(deckCard.card)}
               />
               {deckCard.quantity > 1 && (
-                <Badge className="absolute top-0.5 right-0.5 h-5 min-w-5 text-xs px-1">
+                <Badge className="absolute top-0.5 right-0.5 h-4 sm:h-5 min-w-4 sm:min-w-5 text-[10px] sm:text-xs px-0.5 sm:px-1">
                   x{deckCard.quantity}
                 </Badge>
               )}
               <Button
                 size="icon"
                 variant="destructive"
-                className="absolute bottom-0.5 right-0.5 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute bottom-0.5 right-0.5 h-4 w-4 sm:h-5 sm:w-5 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemoveCard(deckCard.card.id, section);
                 }}
               >
-                <Minus className="h-3 w-3" />
+                <Minus className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
               </Button>
             </div>
           ))}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { FileUpload } from '@/components/upload/FileUpload';
+import { ProgressDialog } from '@/components/ui/progress-dialog';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { parseYDKFile, parseJSONDeck, readFileAsText } from '@/lib/ydk-parser';
 import { getCardsByIds } from '@/lib/ygoprodeck-api';
@@ -10,10 +11,15 @@ import { Search, FileText, Printer } from 'lucide-react';
 
 export default function Index() {
   const [loading, setLoading] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, stage: '' });
+  const [showImportProgress, setShowImportProgress] = useState(false);
   const navigate = useNavigate();
 
   const handleFileSelect = async (file: File) => {
     setLoading(true);
+    setShowImportProgress(true);
+    setImportProgress({ current: 0, total: 3, stage: 'Đọc file...' });
+
     try {
       const content = await readFileAsText(file);
       const isJSON = file.name.endsWith('.json');
@@ -24,12 +30,15 @@ export default function Index() {
       if (allIds.length === 0) {
         toast.error('File không chứa ID bài hợp lệ');
         setLoading(false);
+        setShowImportProgress(false);
         return;
       }
 
-      toast.success(`Đã tìm thấy ${allIds.length} lá bài, đang tải...`);
+      setImportProgress({ current: 1, total: 3, stage: `Tải ${allIds.length} bài...` });
       
       const { cards, notFoundIds } = await getCardsByIds(allIds);
+      
+      setImportProgress({ current: 2, total: 3, stage: 'Xử lý deck...' });
       
       // Store not found IDs to show warning
       if (notFoundIds.length > 0) {
@@ -39,11 +48,17 @@ export default function Index() {
       }
       
       sessionStorage.setItem('importedDeck', JSON.stringify({ parsed, cards }));
-      navigate('/deck-builder');
+      
+      setImportProgress({ current: 3, total: 3, stage: 'Hoàn tất!' });
+      
+      setTimeout(() => {
+        navigate('/deck-builder');
+      }, 300);
       
     } catch (error) {
       toast.error('Có lỗi khi đọc file');
       console.error(error);
+      setShowImportProgress(false);
     } finally {
       setLoading(false);
     }
@@ -53,13 +68,13 @@ export default function Index() {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <main className="container py-6 sm:py-8 px-4">
+        <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
           <div className="text-center space-y-3">
-            <h1 className="text-4xl font-bold tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
               YGO Proxy Printer
             </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
               Chuyển đổi file deck thành PDF/Word với kích thước chuẩn 5.9 x 8.6 cm, sẵn sàng để in
             </p>
           </div>
@@ -69,7 +84,7 @@ export default function Index() {
             className={loading ? 'opacity-50 pointer-events-none' : ''} 
           />
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
             <Card 
               className="cursor-pointer hover:shadow-md transition-shadow" 
               onClick={() => navigate('/search')}
@@ -97,7 +112,7 @@ export default function Index() {
             </Card>
 
             <Card 
-              className="cursor-pointer hover:shadow-md transition-shadow" 
+              className="cursor-pointer hover:shadow-md transition-shadow sm:col-span-2 md:col-span-1" 
               onClick={() => navigate('/history')}
             >
               <CardHeader className="pb-3">
@@ -111,6 +126,15 @@ export default function Index() {
           </div>
         </div>
       </main>
+
+      {/* Import Progress Dialog */}
+      <ProgressDialog
+        open={showImportProgress}
+        title="Đang import deck..."
+        description={importProgress.stage}
+        progress={importProgress.current}
+        total={importProgress.total}
+      />
     </div>
   );
 }

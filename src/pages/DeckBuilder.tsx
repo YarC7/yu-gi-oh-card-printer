@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { DeckBuilderLayout } from '@/components/deck/DeckBuilderLayout';
 import { AddCustomCardModal } from '@/components/cards/AddCustomCardModal';
+import { ProgressDialog } from '@/components/ui/progress-dialog';
 import { useDeck } from '@/hooks/useDeck';
 import { useAuth } from '@/hooks/useAuth';
 import { DEFAULT_EXPORT_SETTINGS, ExportSettings as Settings, YugiohCard, DeckCard } from '@/types/card';
@@ -9,7 +10,7 @@ import { saveDeck, updateDeck, saveGenerationHistory } from '@/lib/deck-service'
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Trash2, Save, PlusCircle } from 'lucide-react';
+import { Trash2, Save, PlusCircle, Download } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { Link } from 'react-router-dom';
 
@@ -21,6 +22,10 @@ export default function DeckBuilder() {
   const [saving, setSaving] = useState(false);
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null);
   const [showCustomCardModal, setShowCustomCardModal] = useState(false);
+  
+  // Progress state
+  const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
+  const [showExportProgress, setShowExportProgress] = useState(false);
 
   useEffect(() => {
     const imported = sessionStorage.getItem('importedDeck');
@@ -100,7 +105,6 @@ export default function DeckBuilder() {
   const buildImageFetchUrl = (url: string) => {
     try {
       const u = new URL(url);
-      // images.ygoprodeck.com does not allow browser fetch/CORS reliably, so proxy via backend
       if (u.hostname === 'images.ygoprodeck.com') {
         const base = import.meta.env.VITE_SUPABASE_URL;
         return `${base}/functions/v1/image-proxy?url=${encodeURIComponent(url)}`;
@@ -111,7 +115,6 @@ export default function DeckBuilder() {
     return url;
   };
 
-  // Helper to load image as base64
   const loadImageAsBase64 = async (url: string): Promise<string> => {
     const fetchUrl = buildImageFetchUrl(url);
     const response = await fetch(fetchUrl);
@@ -137,6 +140,9 @@ export default function DeckBuilder() {
     }
 
     setExporting(true);
+    setShowExportProgress(true);
+    setExportProgress({ current: 0, total: cards.length });
+
     try {
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'cm', format: 'a4' });
       const cardW = settings.cardWidth;
@@ -151,6 +157,8 @@ export default function DeckBuilder() {
       for (let i = 0; i < cards.length; i++) {
         const card = cards[i];
         const imgUrl = card.card_images[0]?.image_url;
+        
+        setExportProgress({ current: i + 1, total: cards.length });
         
         if (imgUrl) {
           try {
@@ -198,6 +206,7 @@ export default function DeckBuilder() {
       console.error(error);
     } finally {
       setExporting(false);
+      setShowExportProgress(false);
     }
   };
 
@@ -205,41 +214,58 @@ export default function DeckBuilder() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
-      <main className="container py-4 flex-1 flex flex-col">
+      <main className="container py-4 flex-1 flex flex-col px-2 sm:px-4">
         {/* Header Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             <Input
               value={deck.name}
               onChange={(e) => setDeckName(e.target.value)}
-              className="text-lg font-semibold w-auto max-w-[200px] h-9"
+              className="text-base sm:text-lg font-semibold w-full max-w-[180px] sm:max-w-[200px] h-9"
               placeholder="Tên deck"
             />
             {currentDeckId && (
-              <span className="text-xs text-muted-foreground">Đã lưu</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">Đã lưu</span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            {/* Export Button - Moved to header */}
+            <Button
+              size="sm"
+              onClick={handleExport}
+              disabled={exporting || getTotalCardCount() === 0}
+              className="gap-1.5"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">
+                {exporting ? 'Đang xuất...' : `Xuất (${getTotalCardCount()})`}
+              </span>
+              <span className="sm:hidden">
+                {exporting ? '...' : getTotalCardCount()}
+              </span>
+            </Button>
             <Button 
               variant="outline" 
               size="sm"
               onClick={() => setShowCustomCardModal(true)}
+              className="gap-1.5"
             >
-              <PlusCircle className="h-4 w-4 mr-1.5" />
-              Thêm bài custom
+              <PlusCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Thêm custom</span>
             </Button>
             <Button 
               variant="outline" 
               size="sm"
               onClick={handleSaveDeck}
               disabled={saving || !user}
+              className="gap-1.5"
             >
-              <Save className="h-4 w-4 mr-1.5" />
-              {saving ? 'Đang lưu...' : 'Lưu'}
+              <Save className="h-4 w-4" />
+              <span className="hidden sm:inline">{saving ? 'Đang lưu...' : 'Lưu'}</span>
             </Button>
             <Button variant="outline" size="sm" onClick={clearDeck}>
-              <Trash2 className="h-4 w-4 mr-1.5" />
-              Xóa
+              <Trash2 className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1.5">Xóa</span>
             </Button>
           </div>
         </div>
@@ -267,6 +293,15 @@ export default function DeckBuilder() {
         open={showCustomCardModal}
         onOpenChange={setShowCustomCardModal}
         onAddCard={addCard}
+      />
+
+      {/* Export Progress Dialog */}
+      <ProgressDialog
+        open={showExportProgress}
+        title="Đang xuất PDF..."
+        description="Đang tải và xử lý hình ảnh"
+        progress={exportProgress.current}
+        total={exportProgress.total}
       />
     </div>
   );

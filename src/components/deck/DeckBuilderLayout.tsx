@@ -4,8 +4,10 @@ import { DeckSection } from './DeckSection';
 import { CardSearchPanel } from './CardSearchPanel';
 import { ExportSettings } from '@/components/export/ExportSettings';
 import { CardDetailModal } from '@/components/cards/CardDetailModal';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { FileDown, Settings2 } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Settings2, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface DeckBuilderLayoutProps {
   cards: DeckCard[];
@@ -18,6 +20,17 @@ interface DeckBuilderLayoutProps {
   getTotalCardCount: () => number;
 }
 
+// Check if card is an Extra Deck monster (Fusion, Synchro, XYZ, Link)
+const isExtraDeckMonster = (card: YugiohCard): boolean => {
+  const type = card.type.toLowerCase();
+  return (
+    type.includes('fusion') ||
+    type.includes('synchro') ||
+    type.includes('xyz') ||
+    type.includes('link')
+  );
+};
+
 export function DeckBuilderLayout({
   cards,
   settings,
@@ -29,40 +42,51 @@ export function DeckBuilderLayout({
   getTotalCardCount,
 }: DeckBuilderLayoutProps) {
   const [selectedCard, setSelectedCard] = useState<YugiohCard | null>(null);
+  const [showSearchSheet, setShowSearchSheet] = useState(false);
 
   const mainDeck = cards.filter((c) => c.section === 'main');
   const extraDeck = cards.filter((c) => c.section === 'extra');
   const sideDeck = cards.filter((c) => c.section === 'side');
 
-  // Check if card is an Extra Deck monster (Fusion, Synchro, XYZ, Link)
-  const isExtraDeckMonster = (card: YugiohCard): boolean => {
-    const type = card.type.toLowerCase();
-    return (
-      type.includes('fusion') ||
-      type.includes('synchro') ||
-      type.includes('xyz') ||
-      type.includes('link')
-    );
-  };
-
-  // Auto-determine section based on card type
-  const determineSection = (card: YugiohCard): 'main' | 'extra' | 'side' => {
-    return isExtraDeckMonster(card) ? 'extra' : 'main';
-  };
+  const mainDeckCount = mainDeck.reduce((sum, c) => sum + c.quantity, 0);
+  const extraDeckCount = extraDeck.reduce((sum, c) => sum + c.quantity, 0);
+  const sideDeckCount = sideDeck.reduce((sum, c) => sum + c.quantity, 0);
 
   const handleDrop = (card: YugiohCard, section: 'main' | 'extra' | 'side') => {
     onAddCard(card, section);
   };
 
+  // Smart quick add with overflow to side deck
   const handleQuickAdd = (card: YugiohCard) => {
-    const section = determineSection(card);
-    onAddCard(card, section);
+    const isExtra = isExtraDeckMonster(card);
+    
+    if (isExtra) {
+      // Extra deck monster
+      if (extraDeckCount < 15) {
+        onAddCard(card, 'extra');
+      } else if (sideDeckCount < 15) {
+        onAddCard(card, 'side');
+        toast.info('Extra Deck đầy, đã thêm vào Side Deck');
+      } else {
+        toast.error('Extra Deck và Side Deck đã đầy');
+      }
+    } else {
+      // Main deck card
+      if (mainDeckCount < 60) {
+        onAddCard(card, 'main');
+      } else if (sideDeckCount < 15) {
+        onAddCard(card, 'side');
+        toast.info('Main Deck đầy, đã thêm vào Side Deck');
+      } else {
+        toast.error('Main Deck và Side Deck đã đầy');
+      }
+    }
   };
 
   return (
-    <div className="grid lg:grid-cols-[1fr_340px] gap-4 h-[calc(100vh-180px)]">
+    <div className="flex flex-col lg:grid lg:grid-cols-[1fr_340px] gap-4 flex-1 min-h-0">
       {/* Left: Deck Sections */}
-      <div className="flex flex-col gap-3 overflow-auto">
+      <div className="flex flex-col gap-3 overflow-auto min-h-0">
         <DeckSection
           title="Main Deck"
           section="main"
@@ -92,8 +116,23 @@ export function DeckBuilderLayout({
         />
       </div>
 
-      {/* Right: Search + Export */}
-      <div className="flex flex-col gap-3 border-l pl-4">
+      {/* Right: Search + Export - Desktop */}
+      <div className="hidden lg:flex flex-col gap-3 border-l pl-4 min-h-0">
+        {/* Export Settings at top */}
+        <div className="border-b pb-3">
+          <div className="flex items-center gap-2 mb-3">
+            <Settings2 className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Cài đặt xuất file</span>
+          </div>
+          <ExportSettings
+            settings={settings}
+            onSettingsChange={onSettingsChange}
+            onExport={onExport}
+            loading={exporting}
+            cardCount={getTotalCardCount()}
+          />
+        </div>
+
         {/* Search Panel */}
         <div className="flex-1 min-h-0">
           <CardSearchPanel
@@ -101,27 +140,32 @@ export function DeckBuilderLayout({
             onAddCard={handleQuickAdd}
           />
         </div>
+      </div>
 
-        {/* Export Settings Accordion */}
-        <Accordion type="single" collapsible className="border-t pt-2">
-          <AccordionItem value="export" className="border-none">
-            <AccordionTrigger className="py-2 hover:no-underline">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <FileDown className="h-4 w-4" />
-                Xuất file ({getTotalCardCount()} bài)
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <ExportSettings
-                settings={settings}
-                onSettingsChange={onSettingsChange}
-                onExport={onExport}
-                loading={exporting}
-                cardCount={getTotalCardCount()}
+      {/* Mobile: Floating search button + Sheet */}
+      <div className="lg:hidden fixed bottom-4 right-4 z-50">
+        <Sheet open={showSearchSheet} onOpenChange={setShowSearchSheet}>
+          <SheetTrigger asChild>
+            <Button size="lg" className="rounded-full h-14 w-14 shadow-lg">
+              <Search className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[85vh] rounded-t-xl">
+            <SheetHeader className="pb-2">
+              <SheetTitle>Tìm kiếm bài</SheetTitle>
+            </SheetHeader>
+            <div className="h-[calc(100%-50px)] overflow-auto">
+              <CardSearchPanel
+                onCardClick={(card) => {
+                  setSelectedCard(card);
+                }}
+                onAddCard={(card) => {
+                  handleQuickAdd(card);
+                }}
               />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Card Detail Modal */}
