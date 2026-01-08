@@ -4,6 +4,7 @@ import { CardSearchFilters } from '@/components/cards/CardSearchFilters';
 import { CardGrid } from '@/components/cards/CardGrid';
 import { CardDetailModal } from '@/components/cards/CardDetailModal';
 import { searchCards } from '@/lib/ygoprodeck-api';
+import { searchCustomCards } from '@/lib/custom-cards-service';
 import { YugiohCard, CardSearchFilters as Filters, DeckCard } from '@/types/card';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -21,10 +22,20 @@ export default function Search() {
   const handleSearch = async (filters: Filters) => {
     setLoading(true);
     try {
-      const results = await searchCards(filters);
-      setCards(results);
-      if (results.length === 0) {
+      // Search both YGOPRODeck API and custom cards in parallel
+      const [apiResults, customResults] = await Promise.all([
+        searchCards(filters),
+        searchCustomCards(filters.name),
+      ]);
+      
+      // Merge results - custom cards first (they're pre-release/custom)
+      const allResults = [...customResults, ...apiResults];
+      setCards(allResults);
+      
+      if (allResults.length === 0) {
         toast.info('Không tìm thấy bài phù hợp');
+      } else if (customResults.length > 0) {
+        toast.success(`Tìm thấy ${customResults.length} bài custom + ${apiResults.length} bài từ database`);
       }
     } catch (error) {
       toast.error('Có lỗi khi tìm kiếm');
