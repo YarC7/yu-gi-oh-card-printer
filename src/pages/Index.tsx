@@ -6,7 +6,7 @@ import { ProgressDialog } from "@/components/ui/progress-dialog";
 import { Button } from "@/components/ui/button";
 import { parseYDKFile, parseJSONDeck, readFileAsText } from "@/lib/ydk-parser";
 import { getCardsByIds } from "@/lib/ygoprodeck-api";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { SEO } from "@/components/seo/SEO";
 import {
@@ -468,6 +468,7 @@ export default function Index() {
             <p className="mt-2 text-xs">
               Yu-Gi-Oh! là thương hiệu của Konami Holdings Corporation
             </p>
+            <p className="mt-2 text-xs">From <Link to="https://github.com/YarC7">Cray</Link> With Love ❤️</p>
           </div>
         </footer>
 

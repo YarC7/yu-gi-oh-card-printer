@@ -79,7 +79,7 @@ export default function History() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-12">
+        <main className="container py-12 px-4">
           <Card className="max-w-md mx-auto text-center">
             <CardHeader>
               <CardTitle>Đăng nhập để xem lịch sử</CardTitle>
@@ -102,9 +102,9 @@ export default function History() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background ">
       <Header />
-      <main className="container py-6">
+      <main className="container py-6 px-4">
         <h1 className="text-2xl font-bold mb-6">Deck & Lịch sử</h1>
 
         <Tabs defaultValue="decks">

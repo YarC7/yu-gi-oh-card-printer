@@ -159,7 +159,7 @@ export default function Search() {
       <div className="min-h-screen bg-background">
         <Header />
 
-        <main className="container py-6">
+        <main className="container py-6 px-4">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h1 className="text-2xl font-bold">Tìm kiếm bài</h1>
