@@ -1,9 +1,13 @@
 ﻿import { YugiohCard, CardSearchFilters, BanListInfo } from "@/types/card";
+import { searchCardsFromCache, syncCardsToCache, getCardFromCache, getCardsFromCache, getCacheStats } from "./card-cache-service";
 
 const API_BASE = "https://db.ygoprodeck.com/api/v7";
 
 // Request deduplication cache for in-flight requests
 const inFlightRequests = new Map<string, Promise<unknown>>();
+
+// Track if we're currently syncing
+let isSyncing = false;
 
 // API Client with caching, retry, and rate limiting
 class YGOProDeckAPIClient {
@@ -146,10 +150,85 @@ interface BanListResponse {
   data: BanlistCardData[];
 }
 
+/**
+ * Convert CardSearchFilters to cache filters format
+ */
+function toCacheFilters(filters: CardSearchFilters): {
+  type?: string;
+  attribute?: string;
+  race?: string;
+  level?: number;
+} {
+  return {
+    type: filters.type,
+    attribute: filters.attribute,
+    race: filters.race,
+    level: filters.level,
+  };
+}
+
 export async function searchCards(
   filters: CardSearchFilters,
   page: number = 1,
   pageSize: number = 50,
+  signal?: AbortSignal
+): Promise<{ cards: YugiohCard[]; totalCount: number; hasMore: boolean; source: 'cache' | 'api' }> {
+  const keyword = filters.name?.trim();
+  const offset = (page - 1) * pageSize;
+
+  // First, try to search from cache
+  const cacheResults = await searchCardsFromCache(
+    keyword,
+    toCacheFilters(filters),
+    pageSize,
+    offset
+  );
+
+  // If we have cache results, return them
+  if (cacheResults.cards.length > 0 || await isCacheReady()) {
+    return {
+      ...cacheResults,
+      source: 'cache',
+    };
+  }
+
+  // Fallback to API if cache is not ready
+  try {
+    const apiResults = await searchCardsFromAPI(filters, page, pageSize, signal);
+    
+    // Trigger background sync if cache is not ready
+    if (!isSyncing && !await isCacheReady()) {
+      isSyncing = true;
+      syncCardsToCache().finally(() => {
+        isSyncing = false;
+      });
+    }
+
+    return {
+      ...apiResults,
+      source: 'api',
+    };
+  } catch (error) {
+    if ((error as Error).message === 'Request aborted') {
+      throw error;
+    }
+    console.error("API search error:", error);
+    return { cards: [], totalCount: 0, hasMore: false, source: 'api' };
+  }
+}
+
+/**
+ * Check if cache is ready (has data)
+ */
+async function isCacheReady(): Promise<boolean> {
+  const stats = await getCacheStats();
+  return stats.cardCount > 0;
+}
+
+async function searchCardsFromAPI(
+  filters: CardSearchFilters,
+  page: number,
+  pageSize: number,
   signal?: AbortSignal
 ): Promise<{ cards: YugiohCard[]; totalCount: number; hasMore: boolean }> {
   const keyword = filters.name?.trim();
@@ -302,6 +381,11 @@ function searchByParams(
 }
 
 export async function getCardById(id: number): Promise<YugiohCard | null> {
+  // Try cache first
+  const cached = await getCardFromCache(id);
+  if (cached) return cached;
+
+  // Fallback to API
   try {
     const data = (await apiClient.get(
       `/cardinfo.php?id=${id}`
@@ -323,12 +407,22 @@ export async function getCardsByIds(
 ): Promise<GetCardsByIdsResult> {
   if (ids.length === 0) return { cards: [], notFoundIds: [] };
 
-  const uniqueIds = [...new Set(ids)];
-  const batchSize = 50;
-  const results: YugiohCard[] = [];
+  // Try cache first
+  const cachedCards = await getCardsFromCache(ids);
+  const foundIds = new Set(cachedCards.map((c) => c.id));
+  const missingIds = ids.filter((id) => !foundIds.has(id));
 
-  for (let i = 0; i < uniqueIds.length; i += batchSize) {
-    const batch = uniqueIds.slice(i, i + batchSize);
+  // If all found in cache, return immediately
+  if (missingIds.length === 0) {
+    return { cards: cachedCards, notFoundIds: [] };
+  }
+
+  // Fetch missing IDs from API
+  const batchSize = 50;
+  const results: YugiohCard[] = [...cachedCards];
+
+  for (let i = 0; i < missingIds.length; i += batchSize) {
+    const batch = missingIds.slice(i, i + batchSize);
     const idsParam = batch.join(",");
 
     try {
@@ -343,9 +437,9 @@ export async function getCardsByIds(
     }
   }
 
-  // Find IDs that weren't found in the API
-  const foundIds = new Set(results.map((c) => c.id));
-  const notFoundIds = uniqueIds.filter((id) => !foundIds.has(id));
+  // Find IDs that weren't found
+  const finalFoundIds = new Set(results.map((c) => c.id));
+  const notFoundIds = ids.filter((id) => !finalFoundIds.has(id));
 
   return { cards: results, notFoundIds };
 }
@@ -497,5 +591,5 @@ export const SPELL_RACES = [
 
 export const TRAP_RACES = ["Normal", "Continuous", "Counter"];
 
-// Export the API client for advanced usage
-export { apiClient };
+// Export the API client and cache functions for advanced usage
+export { apiClient, syncCardsToCache, getCacheStats, getCardFromCache };

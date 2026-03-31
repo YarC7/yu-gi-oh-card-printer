@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ import { VirtualizedCardGrid } from "@/components/cards/VirtualizedCardGrid";
 import { searchCards } from "@/lib/ygoprodeck-api";
 import { searchCustomCards } from "@/lib/custom-cards-service";
 import { YugiohCard, CardSearchFilters as Filters } from "@/types/card";
-import { Search, Filter, RotateCcw, Loader2, X } from "lucide-react";
+import { Search, Filter, RotateCcw, Loader2, X, Database, Cloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CardSearchPanelProps {
@@ -115,6 +115,7 @@ export function CardSearchPanel({
   const [filterState, setFilterState] =
     useState<CardFilterState>(DEFAULT_FILTER_STATE);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [dataSource, setDataSource] = useState<'cache' | 'api'>('api');
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastSearchRef = useRef<string>("");
@@ -157,6 +158,7 @@ export function CardSearchPanel({
       }
       
       setCards([...customResults, ...apiResults.cards]);
+      setDataSource(apiResults.source);
     } catch (error) {
       // Don't show error for aborted requests
       if ((error as Error).message !== 'Request aborted') {
@@ -205,6 +207,7 @@ export function CardSearchPanel({
     setName("");
     setFilterState(DEFAULT_FILTER_STATE);
     setCards([]);
+    setDataSource('api');
     lastSearchRef.current = "";
   }, [cancelPendingRequests]);
 
@@ -221,7 +224,7 @@ export function CardSearchPanel({
           <div className="flex-1 relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Tìm bài..."
+              placeholder="T�m b�i..."
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="pl-8 pr-8 h-9"
@@ -248,7 +251,7 @@ export function CardSearchPanel({
             </SheetTrigger>
             <SheetContent side="right" className="w-full sm:max-w-lg">
               <SheetHeader>
-                <SheetTitle>Bộ lọc</SheetTitle>
+                <SheetTitle>B? l?c</SheetTitle>
               </SheetHeader>
               <div className="mt-6">
                 <FilterMenu
@@ -305,13 +308,30 @@ export function CardSearchPanel({
             ))}
           </div>
         )}
+
+        {/* Data Source Indicator */}
+        {cards.length > 0 && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {dataSource === 'cache' ? (
+              <>
+                <Database className="h-3 w-3" />
+                <span>From cache</span>
+              </>
+            ) : (
+              <>
+                <Cloud className="h-3 w-3" />
+                <span>From API</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Card Results */}
       <div className="flex-1 mt-3">
         {cards.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
-            {loading ? "Đang tìm kiếm..." : "Nhập tên bài để tìm kiếm"}
+            {loading ? "�ang t�m ki?m..." : "Nh?p t�n b�i d? t�m ki?m"}
           </div>
         ) : (
           <VirtualizedCardGrid
@@ -324,7 +344,7 @@ export function CardSearchPanel({
       </div>
 
       <div className="pt-2 border-t text-xs text-muted-foreground text-center">
-        Kéo thả hoặc double-click để thêm bài
+        K�o th? ho?c double-click d? th�m b�i
       </div>
     </div>
   );

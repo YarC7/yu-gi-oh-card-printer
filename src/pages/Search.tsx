@@ -1,9 +1,9 @@
-﻿import { useState, useRef, useCallback } from "react";
+﻿import { useState, useRef, useCallback, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { CardSearchFilters } from "@/components/cards/CardSearchFilters";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { CardDetailModal } from "@/components/cards/CardDetailModal";
-import { searchCards } from "@/lib/ygoprodeck-api";
+import { searchCards, getCacheStats, syncCardsToCache } from "@/lib/ygoprodeck-api";
 import { searchCustomCards } from "@/lib/custom-cards-service";
 import {
   YugiohCard,
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
-import { ShoppingCart, ArrowRight } from "lucide-react";
+import { ShoppingCart, ArrowRight, Database, Cloud } from "lucide-react";
 import { useBanList } from "@/hooks/useBanList";
 import { SEO } from "@/components/seo/SEO";
 import {
@@ -42,9 +42,44 @@ export default function Search() {
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [lastFilters, setLastFilters] = useState<Filters | null>(null);
+  const [dataSource, setDataSource] = useState<'cache' | 'api'>('api');
+  const [cacheStats, setCacheStats] = useState<{ cardCount: number; needsRefresh: boolean }>({ cardCount: 0, needsRefresh: true });
+  const [isSyncing, setIsSyncing] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const navigate = useNavigate();
   const { format, setFormat } = useBanList();
+
+  // Check cache status on mount
+  useEffect(() => {
+    checkCacheStatus();
+  }, []);
+
+  const checkCacheStatus = async () => {
+    const stats = await getCacheStats();
+    setCacheStats({
+      cardCount: stats.cardCount,
+      needsRefresh: stats.needsRefresh,
+    });
+  };
+
+  const handleSyncCache = async () => {
+    setIsSyncing(true);
+    toast.info("Đang đồng bộ dữ liệu thẻ bài...");
+    
+    try {
+      const result = await syncCardsToCache();
+      if (result.success) {
+        toast.success(`Đã đồng bộ ${result.count} thẻ bài!`);
+        await checkCacheStatus();
+      } else {
+        toast.error("Đồng bộ thất bại: " + result.error);
+      }
+    } catch (error) {
+      toast.error("Có lỗi khi đồng bộ");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Cancel any pending requests
   const cancelPendingRequests = useCallback(() => {
@@ -81,6 +116,7 @@ export default function Search() {
       setCards(allResults);
       setTotalCount(apiResults.totalCount + customResults.length);
       setHasMore(apiResults.hasMore);
+      setDataSource(apiResults.source);
       setLastFilters(filters);
       setCurrentPage(page);
 
@@ -117,6 +153,7 @@ export default function Search() {
     setTotalCount(0);
     setHasMore(false);
     setLastFilters(null);
+    setDataSource('api');
   }, [cancelPendingRequests]);
 
   const handleAddCard = useCallback((card: YugiohCard) => {
@@ -191,7 +228,46 @@ export default function Search() {
         <main className="container py-6 px-4">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-bold">Tìm kiếm bài</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold">Tìm kiếm bài</h1>
+                
+                {/* Data Source Badge */}
+                {cards.length > 0 && (
+                  <Badge 
+                    variant={dataSource === 'cache' ? 'default' : 'secondary'}
+                    className="gap-1"
+                  >
+                    {dataSource === 'cache' ? (
+                      <>
+                        <Database className="h-3 w-3" />
+                        Cache
+                      </>
+                    ) : (
+                      <>
+                        <Cloud className="h-3 w-3" />
+                        API
+                      </>
+                    )}
+                  </Badge>
+                )}
+
+                {/* Cache Status */}
+                {cacheStats.cardCount > 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    {cacheStats.cardCount.toLocaleString()} cards cached
+                  </span>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleSyncCache}
+                    disabled={isSyncing}
+                  >
+                    {isSyncing ? 'Syncing...' : 'Cache Cards'}
+                  </Button>
+                )}
+              </div>
+
               <div className="flex items-center gap-3">
                 <Select value={format} onValueChange={setFormat}>
                   <SelectTrigger className="w-[80px]">
