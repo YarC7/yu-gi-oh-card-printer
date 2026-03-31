@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FilterMenu, CardFilterState, DEFAULT_FILTER_STATE } from './FilterMenu';
@@ -100,6 +100,7 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const onSearchRef = useRef(onSearch);
+  const lastSearchRef = useRef<string>('');
   
   // Keep ref updated
   onSearchRef.current = onSearch;
@@ -114,7 +115,7 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
     (filterState.atkMin !== undefined ? 1 : 0) +
     (filterState.defMin !== undefined ? 1 : 0);
 
-  // Debounced search on filter/name change
+  // Debounced search on filter/name change - reduced to 250ms for better responsiveness
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -124,10 +125,17 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
     const hasOtherFilters = activeFilterCount > 0;
     
     if (hasNameFilter || hasOtherFilters) {
+      // Generate search key to prevent duplicate searches
+      const searchKey = JSON.stringify({ name, filterState });
+      if (searchKey === lastSearchRef.current) {
+        return;
+      }
+      
       debounceRef.current = setTimeout(() => {
         const apiFilters = convertFiltersToAPI(filterState, name);
+        lastSearchRef.current = searchKey;
         onSearchRef.current(apiFilters);
-      }, 400);
+      }, 250); // Reduced from 400ms to 250ms
     }
 
     return () => {
@@ -137,19 +145,21 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
     };
   }, [name, filterState, activeFilterCount]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setName('');
     setFilterState(DEFAULT_FILTER_STATE);
-  };
+    lastSearchRef.current = '';
+  }, []);
 
-  const handleConfirmFilters = () => {
+  const handleConfirmFilters = useCallback(() => {
     setIsFilterOpen(false);
     const apiFilters = convertFiltersToAPI(filterState, name);
+    lastSearchRef.current = JSON.stringify({ name, filterState });
     onSearchRef.current(apiFilters);
-  };
+  }, [filterState, name]);
 
   // Get quick filter badges
-  const getQuickBadges = () => {
+  const getQuickBadges = useCallback(() => {
     const badges: { label: string; onRemove: () => void }[] = [];
     
     filterState.cardTypes.forEach(type => {
@@ -190,7 +200,9 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
     }
 
     return badges;
-  };
+  }, [filterState]);
+
+  const quickBadges = getQuickBadges();
 
   return (
     <div className="space-y-3">
@@ -242,9 +254,9 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
       </div>
 
       {/* Quick filter badges */}
-      {getQuickBadges().length > 0 && (
+      {quickBadges.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {getQuickBadges().map((badge, i) => (
+          {quickBadges.map((badge, i) => (
             <Badge 
               key={i} 
               variant="secondary" 

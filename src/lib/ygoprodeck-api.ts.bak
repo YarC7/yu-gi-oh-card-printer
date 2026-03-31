@@ -1,9 +1,6 @@
-﻿import { YugiohCard, CardSearchFilters, BanListInfo } from "@/types/card";
+import { YugiohCard, CardSearchFilters, BanListInfo } from "@/types/card";
 
 const API_BASE = "https://db.ygoprodeck.com/api/v7";
-
-// Request deduplication cache for in-flight requests
-const inFlightRequests = new Map<string, Promise<unknown>>();
 
 // API Client with caching, retry, and rate limiting
 class YGOProDeckAPIClient {
@@ -11,19 +8,13 @@ class YGOProDeckAPIClient {
   private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY = 1000; // 1 second
-  private readonly RATE_LIMIT_DELAY = 50; // 50ms between requests (reduced from 100ms)
+  private readonly RATE_LIMIT_DELAY = 100; // 100ms between requests
   private lastRequestTime = 0;
 
   private async makeRequest(
     url: string,
-    retries = this.MAX_RETRIES,
-    signal?: AbortSignal
+    retries = this.MAX_RETRIES
   ): Promise<unknown> {
-    // Check for abort before starting
-    if (signal?.aborted) {
-      throw new Error('Request aborted');
-    }
-
     // Rate limiting
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
@@ -35,13 +26,14 @@ class YGOProDeckAPIClient {
     this.lastRequestTime = Date.now();
 
     // Check cache first
-    const cached = this.cache.get(url);
+    const cacheKey = url;
+    const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       return cached.data;
     }
 
     try {
-      const response = await fetch(url, { signal });
+      const response = await fetch(url);
 
       if (!response.ok) {
         if (response.status === 429) {
@@ -50,7 +42,7 @@ class YGOProDeckAPIClient {
             await new Promise((resolve) =>
               setTimeout(resolve, this.RETRY_DELAY * 2)
             );
-            return this.makeRequest(url, retries - 1, signal);
+            return this.makeRequest(url, retries - 1);
           }
           throw new Error(`Rate limited: ${response.status}`);
         }
@@ -63,7 +55,7 @@ class YGOProDeckAPIClient {
               this.RETRY_DELAY * (this.MAX_RETRIES - retries + 1)
             )
           );
-          return this.makeRequest(url, retries - 1, signal);
+          return this.makeRequest(url, retries - 1);
         }
 
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -72,42 +64,22 @@ class YGOProDeckAPIClient {
       const data = await response.json();
 
       // Cache the result
-      this.cache.set(url, { data, timestamp: Date.now() });
+      this.cache.set(cacheKey, { data, timestamp: Date.now() });
 
       return data;
     } catch (error) {
-      if (signal?.aborted) {
-        throw new Error('Request aborted');
-      }
       if (retries > 0 && (error as Error).message.includes("fetch")) {
         // Network error, retry
         await new Promise((resolve) => setTimeout(resolve, this.RETRY_DELAY));
-        return this.makeRequest(url, retries - 1, signal);
+        return this.makeRequest(url, retries - 1);
       }
       throw error;
     }
   }
 
-  async get(endpoint: string, signal?: AbortSignal): Promise<unknown> {
+  async get(endpoint: string): Promise<unknown> {
     const url = `${API_BASE}${endpoint}`;
-    
-    // Check for deduplication - if same request is in flight, return it
-    const existingRequest = inFlightRequests.get(url);
-    if (existingRequest) {
-      return existingRequest;
-    }
-
-    // Create new request and track it
-    const request = this.makeRequest(url, this.MAX_RETRIES, signal);
-    inFlightRequests.set(url, request);
-
-    try {
-      const result = await request;
-      return result;
-    } finally {
-      // Clean up in-flight request after it completes
-      inFlightRequests.delete(url);
-    }
+    return this.makeRequest(url);
   }
 
   // Clear cache method for manual cache invalidation
@@ -149,44 +121,44 @@ interface BanListResponse {
 export async function searchCards(
   filters: CardSearchFilters,
   page: number = 1,
-  pageSize: number = 50,
-  signal?: AbortSignal
+  pageSize: number = 50
 ): Promise<{ cards: YugiohCard[]; totalCount: number; hasMore: boolean }> {
   const keyword = filters.name?.trim();
 
   // If we have a keyword, search both by name and description separately then merge
   if (keyword && keyword.length >= 2) {
     try {
-      // Run name and description searches in parallel
-      const [nameResults, descResults] = await Promise.all([
-        searchByParams(
-          { ...filters, searchType: "name" },
-          page,
-          pageSize,
-          signal
-        ).catch(() => ({ cards: [] as YugiohCard[], totalCount: 0, hasMore: false })),
-        searchByParams(
-          { ...filters, searchType: "desc", num: pageSize },
-          page,
-          pageSize,
-          signal
-        ).catch(() => ({ cards: [] as YugiohCard[], totalCount: 0, hasMore: false })),
-      ]);
+      // Try name search first (usually faster and more relevant)
+      const nameResults = await searchByParams(
+        {
+          ...filters,
+          searchType: "name",
+        },
+        page,
+        pageSize
+      );
+
+      // If we have enough results from name search, return them
+      if (nameResults.cards.length >= pageSize) {
+        return nameResults;
+      }
+
+      // Otherwise, also search description but limit to avoid too many results
+      const descResults = await searchByParams(
+        {
+          ...filters,
+          searchType: "desc",
+          num: Math.max(1, pageSize - nameResults.cards.length), // Limit desc search to fill remaining slots
+        },
+        page,
+        pageSize
+      );
 
       // Merge and deduplicate results
       const seen = new Set<number>();
       const merged: YugiohCard[] = [];
 
-      // Prioritize name results first
-      for (const card of nameResults.cards) {
-        if (!seen.has(card.id)) {
-          seen.add(card.id);
-          merged.push(card);
-        }
-      }
-      
-      // Add desc results if we need more
-      for (const card of descResults.cards) {
+      for (const card of [...nameResults.cards, ...descResults.cards]) {
         if (!seen.has(card.id)) {
           seen.add(card.id);
           merged.push(card);
@@ -195,110 +167,79 @@ export async function searchCards(
 
       return {
         cards: merged.slice(0, pageSize),
-        totalCount: nameResults.totalCount + descResults.totalCount,
-        hasMore: merged.length >= pageSize,
+        totalCount: Math.max(nameResults.totalCount, descResults.totalCount),
+        hasMore: nameResults.hasMore || descResults.hasMore,
       };
     } catch (error) {
-      if ((error as Error).message === 'Request aborted') {
-        throw error;
-      }
-      console.error("Search error:", error);
-      return { cards: [], totalCount: 0, hasMore: false };
+      // If parallel search fails, fall back to single search
+      console.warn(
+        "Parallel search failed, falling back to name search:",
+        error
+      );
+      return searchByParams({ ...filters, searchType: "name" }, page, pageSize);
     }
   }
 
-  // No keyword, use regular filtered search
-  return searchByParams(filters, page, pageSize, signal);
+  // No keyword, just search with other filters
+  return searchByParams(filters, page, pageSize);
 }
 
-function searchByParams(
+async function searchByParams(
   filters: CardSearchFilters & { searchType?: "name" | "desc"; num?: number },
-  page: number,
-  pageSize: number,
-  signal?: AbortSignal
+  page: number = 1,
+  pageSize: number = 50
 ): Promise<{ cards: YugiohCard[]; totalCount: number; hasMore: boolean }> {
   const params = new URLSearchParams();
 
-  // Handle search type (fname for name, desc for description)
-  if (filters.name && filters.name.trim()) {
-    const searchTerm = filters.name.trim();
+  if (filters.name) {
     if (filters.searchType === "desc") {
-      params.set("desc", searchTerm);
+      params.append("desc", filters.name);
     } else {
-      params.set("fname", searchTerm);
+      params.append("fname", filters.name);
     }
   }
 
-  // Card type filter
-  if (filters.type) {
-    params.set("type", filters.type);
+  if (filters.type) params.append("type", filters.type);
+  if (filters.attribute) params.append("attribute", filters.attribute);
+  if (filters.race) params.append("race", filters.race);
+  if (filters.level) params.append("level", filters.level.toString());
+  if (filters.archetype) params.append("archetype", filters.archetype);
+
+  if (filters.atkMin !== undefined) {
+    params.append("atk", `gte${filters.atkMin}`);
   }
 
-  // Attribute filter
-  if (filters.attribute) {
-    params.set("attribute", filters.attribute);
+  if (filters.defMin !== undefined) {
+    params.append("def", `gte${filters.defMin}`);
   }
 
-  // Race filter (monster type or spell/trap type)
-  if (filters.race) {
-    params.set("race", filters.race);
+  const effectivePageSize = filters.num || pageSize;
+  const offset = (page - 1) * effectivePageSize;
+
+  params.append("num", effectivePageSize.toString());
+  params.append("offset", offset.toString());
+
+  try {
+    const data = (await apiClient.get(
+      `/cardinfo.php?${params.toString()}`
+    )) as CardInfoResponse;
+    const cards = data.data || [];
+    const totalCount = data.meta?.total_rows || cards.length;
+    const hasMore = offset + cards.length < totalCount;
+
+    return {
+      cards,
+      totalCount,
+      hasMore,
+    };
+  } catch (error) {
+    console.error("Error searching cards:", error);
+    return {
+      cards: [],
+      totalCount: 0,
+      hasMore: false,
+    };
   }
-
-  // Level filter
-  if (filters.level !== undefined && filters.level !== null) {
-    params.set("level", String(filters.level));
-  }
-
-  // ATK filters
-  if (filters.atkMin !== undefined && filters.atkMin !== null) {
-    params.set("atk", String(filters.atkMin));
-  }
-
-  // DEF filters
-  if (filters.defMin !== undefined && filters.defMin !== null) {
-    params.set("def", String(filters.defMin));
-  }
-
-  // Archetype filter
-  if (filters.archetype) {
-    params.set("archetype", filters.archetype);
-  }
-
-  // Pagination - YGOPRODeck uses num and offset
-  const num = filters.num || pageSize;
-  const offset = (page - 1) * pageSize;
-  params.set("num", String(num));
-  params.set("offset", String(offset));
-
-  const url = `/cardinfo.php?${params.toString()}`;
-  
-  // Check in-flight deduplication
-  const existingRequest = inFlightRequests.get(url) as Promise<CardInfoResponse> | undefined;
-  if (existingRequest) {
-    return existingRequest.then((data) => ({
-      cards: data.data || [],
-      totalCount: data.meta?.total_rows || (data.data || []).length,
-      hasMore: offset + (data.data || []).length < (data.meta?.total_rows || 0),
-    }));
-  }
-
-  const request = apiClient.get(url, signal) as Promise<CardInfoResponse>;
-  inFlightRequests.set(url, request);
-
-  return request
-    .then((data) => {
-      const cards = data.data || [];
-      const totalRows = data.meta?.total_rows || cards.length;
-
-      return {
-        cards,
-        totalCount: totalRows,
-        hasMore: offset + cards.length < totalRows,
-      };
-    })
-    .finally(() => {
-      inFlightRequests.delete(url);
-    });
 }
 
 export async function getCardById(id: number): Promise<YugiohCard | null> {
@@ -366,7 +307,7 @@ export async function getBanList(): Promise<BanListInfo[]> {
         banListMap.set(card.id, {
           cardId: card.id,
           ban_tcg: normalizeBanStatus(card.banlist_info.ban_tcg),
-          ban_ocg: undefined,
+          ban_ocg: undefined, // Will be filled from OCG data
           ban_goat: card.banlist_info.ban_goat
             ? normalizeBanStatus(card.banlist_info.ban_goat)
             : undefined,

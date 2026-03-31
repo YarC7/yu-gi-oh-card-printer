@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +116,8 @@ export function CardSearchPanel({
     useState<CardFilterState>(DEFAULT_FILTER_STATE);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastSearchRef = useRef<string>("");
 
   const activeFilterCount =
     filterState.cardTypes.length +
@@ -126,22 +128,49 @@ export function CardSearchPanel({
     (filterState.atkMin !== undefined ? 1 : 0) +
     (filterState.defMin !== undefined ? 1 : 0);
 
-  const handleSearch = async (filters: Filters) => {
+  // Cancel any pending requests
+  const cancelPendingRequests = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  const handleSearch = useCallback(async (filters: Filters) => {
+    // Cancel previous requests before starting new one
+    cancelPendingRequests();
+    
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
     setLoading(true);
     try {
       const [apiResults, customResults] = await Promise.all([
-        searchCards(filters),
+        searchCards(filters, 1, 50, abortController.signal),
         searchCustomCards(filters.name),
       ]);
-      setCards([...customResults, ...apiResults]);
+      
+      // Check if request was aborted before updating state
+      if (abortController.signal.aborted) {
+        return;
+      }
+      
+      setCards([...customResults, ...apiResults.cards]);
     } catch (error) {
-      console.error("Search error:", error);
+      // Don't show error for aborted requests
+      if ((error as Error).message !== 'Request aborted') {
+        console.error("Search error:", error);
+      }
     } finally {
-      setLoading(false);
+      // Only clear loading if this is still the current request
+      if (abortControllerRef.current === abortController) {
+        setLoading(false);
+      }
     }
-  };
+  }, [cancelPendingRequests]);
 
-  // Debounced search
+  // Debounced search - reduced to 250ms for better responsiveness
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -151,10 +180,17 @@ export function CardSearchPanel({
     const hasOtherFilters = activeFilterCount > 0;
 
     if (hasNameFilter || hasOtherFilters) {
+      // Generate search key to prevent duplicate searches
+      const searchKey = JSON.stringify({ name, filterState });
+      if (searchKey === lastSearchRef.current) {
+        return;
+      }
+      
       debounceRef.current = setTimeout(() => {
         const apiFilters = convertFiltersToAPI(filterState, name);
+        lastSearchRef.current = searchKey;
         handleSearch(apiFilters);
-      }, 300);
+      }, 250); // Reduced from 300ms to 250ms
     }
 
     return () => {
@@ -162,13 +198,15 @@ export function CardSearchPanel({
         clearTimeout(debounceRef.current);
       }
     };
-  }, [name, filterState, activeFilterCount]);
+  }, [name, filterState, activeFilterCount, handleSearch]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
+    cancelPendingRequests();
     setName("");
     setFilterState(DEFAULT_FILTER_STATE);
     setCards([]);
-  };
+    lastSearchRef.current = "";
+  }, [cancelPendingRequests]);
 
   const handleDragStart = (e: React.DragEvent, card: YugiohCard) => {
     e.dataTransfer.setData("application/json", JSON.stringify(card));

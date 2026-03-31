@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState, useRef, useCallback } from "react";
 import { Header } from "@/components/layout/Header";
 import { CardSearchFilters } from "@/components/cards/CardSearchFilters";
 import { CardGrid } from "@/components/cards/CardGrid";
@@ -42,19 +42,41 @@ export default function Search() {
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [lastFilters, setLastFilters] = useState<Filters | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const navigate = useNavigate();
   const { format, setFormat } = useBanList();
 
-  const handleSearch = async (filters: Filters, page: number = 1) => {
+  // Cancel any pending requests
+  const cancelPendingRequests = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  const handleSearch = useCallback(async (filters: Filters, page: number = 1) => {
+    // Cancel previous requests before starting new one
+    cancelPendingRequests();
+    
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
     setLoading(true);
+    
     try {
       // Search both YGOPRODeck API and custom cards in parallel
       const [apiResults, customResults] = await Promise.all([
-        searchCards(filters, page),
+        searchCards(filters, page, 50, abortController.signal),
         searchCustomCards(filters.name),
       ]);
 
-      // Merge results - custom cards first (they're pre-release/custom)
+      // Check if request was aborted before updating state
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      // Merge results - custom cards first
       const allResults = [...customResults, ...apiResults.cards];
       setCards(allResults);
       setTotalCount(apiResults.totalCount + customResults.length);
@@ -70,32 +92,39 @@ export default function Search() {
         );
       }
     } catch (error) {
-      toast.error("Có lỗi khi tìm kiếm");
+      // Don't show error for aborted requests
+      if ((error as Error).message !== 'Request aborted') {
+        toast.error("Có lỗi khi tìm kiếm");
+      }
     } finally {
-      setLoading(false);
+      // Only clear loading if this is still the current request
+      if (abortControllerRef.current === abortController) {
+        setLoading(false);
+      }
     }
-  };
+  }, [cancelPendingRequests]);
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     if (lastFilters) {
       handleSearch(lastFilters, page);
     }
-  };
+  }, [lastFilters, handleSearch]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
+    cancelPendingRequests();
     setCards([]);
     setCurrentPage(1);
     setTotalCount(0);
     setHasMore(false);
     setLastFilters(null);
-  };
+  }, [cancelPendingRequests]);
 
-  const handleAddCard = (card: YugiohCard) => {
+  const handleAddCard = useCallback((card: YugiohCard) => {
     setSelectedCards((prev) => [...prev, card]);
     toast.success(`Đã thêm ${card.name}`);
-  };
+  }, []);
 
-  const handleGoToDeckBuilder = () => {
+  const handleGoToDeckBuilder = useCallback(() => {
     if (selectedCards.length === 0) {
       toast.error("Chưa chọn bài nào");
       return;
@@ -147,7 +176,7 @@ export default function Search() {
     );
 
     navigate("/deck-builder");
-  };
+  }, [selectedCards, navigate]);
 
   return (
     <>
