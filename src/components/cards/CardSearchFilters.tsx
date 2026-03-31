@@ -2,18 +2,17 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FilterMenu, CardFilterState, DEFAULT_FILTER_STATE } from './FilterMenu';
-// Using Sheet component for filter panel - no Accordion/Select components
 import { CardSearchFilters as Filters } from '@/types/card';
-import { Search, RotateCcw, Loader2, Filter, X } from 'lucide-react';
+import { Search, RotateCcw, Loader2, Filter, X, Clock, TrendingUp } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
+import { getSearchSuggestions, getSearchHistory, addToSearchHistory } from '@/lib/ygoprodeck-api';
 
 interface CardSearchFiltersProps {
   onSearch: (filters: Filters) => void;
   loading?: boolean;
 }
 
-// Convert CardFilterState to API Filters
 function convertFiltersToAPI(state: CardFilterState, name?: string): Filters {
   const filters: Filters = {};
   
@@ -21,11 +20,9 @@ function convertFiltersToAPI(state: CardFilterState, name?: string): Filters {
     filters.name = name.trim();
   }
 
-  // Card type - prioritize specific types
   if (state.cardTypes.length > 0) {
     const types = state.cardTypes;
     
-    // Build the type string for API
     if (types.includes('Spell')) {
       filters.type = 'Spell Card';
     } else if (types.includes('Trap')) {
@@ -49,14 +46,11 @@ function convertFiltersToAPI(state: CardFilterState, name?: string): Filters {
     }
   }
 
-  // Spell/Trap subtype (race parameter for spell/trap cards)
   if (state.spellTrapTypes.length === 1) {
     const spellTrapType = state.spellTrapTypes[0];
-    // Extract the race from the type (e.g., "Field Spell" -> "Field", "Counter Trap" -> "Counter")
     const race = spellTrapType.replace(' Spell', '').replace(' Trap', '');
     filters.race = race;
     
-    // Also set the card type if not already set
     if (!filters.type) {
       if (spellTrapType.includes('Spell')) {
         filters.type = 'Spell Card';
@@ -66,27 +60,22 @@ function convertFiltersToAPI(state: CardFilterState, name?: string): Filters {
     }
   }
 
-  // Attribute
   if (state.attributes.length === 1) {
     filters.attribute = state.attributes[0];
   }
 
-  // Race (monster type)
   if (state.monsterTypes.length === 1) {
     filters.race = state.monsterTypes[0];
   }
 
-  // Level
   if (state.levelMin !== undefined) {
     filters.level = state.levelMin;
   }
 
-  // ATK
   if (state.atkMin !== undefined) {
     filters.atkMin = state.atkMin;
   }
 
-  // DEF
   if (state.defMin !== undefined) {
     filters.defMin = state.defMin;
   }
@@ -98,14 +87,22 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
   const [name, setName] = useState('');
   const [filterState, setFilterState] = useState<CardFilterState>(DEFAULT_FILTER_STATE);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const suggestionsRef = useRef<NodeJS.Timeout | null>(null);
   const onSearchRef = useRef(onSearch);
   const lastSearchRef = useRef<string>('');
+  const inputRef = useRef<HTMLInputElement>(null);
   
-  // Keep ref updated
   onSearchRef.current = onSearch;
 
-  // Count active filters
+  // Load search history on mount
+  useEffect(() => {
+    setSearchHistory(getSearchHistory());
+  }, []);
+
   const activeFilterCount = 
     filterState.cardTypes.length + 
     filterState.attributes.length + 
@@ -115,7 +112,18 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
     (filterState.atkMin !== undefined ? 1 : 0) +
     (filterState.defMin !== undefined ? 1 : 0);
 
-  // Debounced search on filter/name change - reduced to 250ms for better responsiveness
+  // Fetch suggestions when name changes
+  const fetchSuggestions = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    
+    const results = await getSearchSuggestions(query, 5);
+    setSuggestions(results);
+  }, []);
+
+  // Debounced search
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -125,7 +133,6 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
     const hasOtherFilters = activeFilterCount > 0;
     
     if (hasNameFilter || hasOtherFilters) {
-      // Generate search key to prevent duplicate searches
       const searchKey = JSON.stringify({ name, filterState });
       if (searchKey === lastSearchRef.current) {
         return;
@@ -135,7 +142,13 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
         const apiFilters = convertFiltersToAPI(filterState, name);
         lastSearchRef.current = searchKey;
         onSearchRef.current(apiFilters);
-      }, 250); // Reduced from 400ms to 250ms
+        
+        // Add to history and refresh
+        if (name) {
+          addToSearchHistory(name);
+          setSearchHistory(getSearchHistory());
+        }
+      }, 250);
     }
 
     return () => {
@@ -145,9 +158,31 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
     };
   }, [name, filterState, activeFilterCount]);
 
+  // Debounced suggestions
+  useEffect(() => {
+    if (suggestionsRef.current) {
+      clearTimeout(suggestionsRef.current);
+    }
+
+    if (name.length >= 2 && showSuggestions) {
+      suggestionsRef.current = setTimeout(() => {
+        fetchSuggestions(name);
+      }, 150);
+    } else {
+      setSuggestions([]);
+    }
+
+    return () => {
+      if (suggestionsRef.current) {
+        clearTimeout(suggestionsRef.current);
+      }
+    };
+  }, [name, fetchSuggestions, showSuggestions]);
+
   const handleReset = useCallback(() => {
     setName('');
     setFilterState(DEFAULT_FILTER_STATE);
+    setSuggestions([]);
     lastSearchRef.current = '';
   }, []);
 
@@ -158,7 +193,24 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
     onSearchRef.current(apiFilters);
   }, [filterState, name]);
 
-  // Get quick filter badges
+  const handleSuggestionClick = (suggestion: string) => {
+    setName(suggestion);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    const apiFilters = convertFiltersToAPI(filterState, suggestion);
+    onSearchRef.current(apiFilters);
+    addToSearchHistory(suggestion);
+    setSearchHistory(getSearchHistory());
+    inputRef.current?.blur();
+  };
+
+  const handleHistoryClick = (term: string) => {
+    setName(term);
+    setShowSuggestions(false);
+    const apiFilters = convertFiltersToAPI(filterState, term);
+    onSearchRef.current(apiFilters);
+  };
+
   const getQuickBadges = useCallback(() => {
     const badges: { label: string; onRemove: () => void }[] = [];
     
@@ -210,13 +262,78 @@ export function CardSearchFilters({ onSearch, loading }: CardSearchFiltersProps)
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            ref={inputRef}
             placeholder="Tìm theo tên hoặc mô tả bài..."
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => {
+              // Delay to allow clicking suggestions
+              setTimeout(() => setShowSuggestions(false), 200);
+            }}
             className="pl-10 pr-10"
           />
           {loading && (
             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+          
+          {/* Search Suggestions Dropdown */}
+          {showSuggestions && (suggestions.length > 0 || (name.length === 0 && searchHistory.length > 0)) && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg z-50 py-2">
+              {/* Show history when input is empty */}
+              {name.length === 0 && searchHistory.length > 0 && (
+                <>
+                  <div className="px-3 py-1 text-xs text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Lịch sử tìm kiếm
+                  </div>
+                  {searchHistory.slice(0, 5).map((term, i) => (
+                    <button
+                      key={`history-${i}`}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent flex items-center gap-2"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleHistoryClick(term);
+                      }}
+                    >
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      {term}
+                    </button>
+                  ))}
+                </>
+              )}
+              
+              {/* Show suggestions when typing */}
+              {name.length >= 2 && suggestions.length > 0 && (
+                <>
+                  <div className="px-3 py-1 text-xs text-muted-foreground flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3" />
+                    Gợi ý
+                  </div>
+                  {suggestions.map((suggestion, i) => (
+                    <button
+                      key={i}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent flex items-center gap-2"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSuggestionClick(suggestion);
+                      }}
+                    >
+                      <Search className="h-3 w-3 text-muted-foreground" />
+                      <span dangerouslySetInnerHTML={{
+                        __html: suggestion.replace(
+                          new RegExp(`(${name})`, 'gi'),
+                          '<mark class="bg-yellow-200 font-medium">$1</mark>'
+                        )
+                      }} />
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
           )}
         </div>
         
