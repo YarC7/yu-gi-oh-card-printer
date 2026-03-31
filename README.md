@@ -172,3 +172,5 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 ## Contact
 
 If you have any questions or suggestions, please create an issue on GitHub.
+
+Made with Love Cray7
