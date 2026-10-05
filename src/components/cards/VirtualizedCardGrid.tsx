@@ -3,6 +3,7 @@ import { YugiohCard } from "@/types/card";
 import { CardImage } from "./CardImage";
 import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/i18n/LanguageContext";
 
 interface VirtualizedCardGridProps {
   cards: YugiohCard[];
@@ -22,6 +23,7 @@ export const VirtualizedCardGrid = memo<VirtualizedCardGridProps>(
     onAddCard,
     className,
   }: VirtualizedCardGridProps) {
+    const { t } = useLanguage();
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 });
     const [containerHeight, setContainerHeight] = useState(0);
@@ -100,7 +102,7 @@ export const VirtualizedCardGrid = memo<VirtualizedCardGridProps>(
       return (
         <div className={cn("flex-1 overflow-auto", className)}>
           <div className="py-12 text-center text-sm text-muted-foreground">
-            Không có kết quả
+            {t("search.gridNoResults")}
           </div>
         </div>
       );

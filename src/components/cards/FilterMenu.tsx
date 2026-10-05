@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 // Card Types
 export const CARD_TYPE_FILTERS = [
@@ -112,6 +113,7 @@ export function FilterMenu({
   showActions = true,
   className 
 }: FilterMenuProps) {
+  const { t } = useLanguage();
   const toggleFilter = (
     category: keyof Pick<CardFilterState, 'cardTypes' | 'attributes' | 'spellTrapTypes' | 'monsterTypes' | 'specialTypes'>,
     value: string
@@ -142,11 +144,11 @@ export function FilterMenu({
   ) || filters.cardTypes.length === 0;
 
   return (
-    <div className={cn('space-y-4', className)}>
-      <ScrollArea className="h-[400px] pr-4">
+    <div className={cn('flex min-h-0 flex-1 flex-col gap-4', className)}>
+      <ScrollArea className="min-h-0 flex-1 pr-4">
         <div className="space-y-4">
           {/* Card Type */}
-          <FilterSection title="Card Type">
+          <FilterSection title={t("filters.cardType")}>
             {CARD_TYPE_FILTERS.map(type => (
               <FilterToggle
                 key={type}
@@ -160,7 +162,7 @@ export function FilterMenu({
           <Separator />
 
           {/* Attribute */}
-          <FilterSection title="Attribute">
+          <FilterSection title={t("filters.attribute")}>
             {ATTRIBUTE_FILTERS.map(attr => (
               <FilterToggle
                 key={attr}
@@ -176,7 +178,7 @@ export function FilterMenu({
           {/* Spell/Trap Types - only show if Spell or Trap is selected */}
           {isSpellTrapSelected && (
             <>
-              <FilterSection title="Spell/Trap Type">
+              <FilterSection title={t("filters.spellTrapType")}>
                 {SPELL_TRAP_TYPES.map(type => (
                   <FilterToggle
                     key={type}
@@ -193,7 +195,7 @@ export function FilterMenu({
           {/* Monster Type (Race) */}
           {isMonsterSelected && (
             <>
-              <FilterSection title="Monster Type">
+              <FilterSection title={t("filters.monsterType")}>
                 {MONSTER_TYPE_FILTERS.map(type => (
                   <FilterToggle
                     key={type}
@@ -206,7 +208,7 @@ export function FilterMenu({
 
               <Separator />
 
-              <FilterSection title="Special Abilities">
+              <FilterSection title={t("filters.special")}>
                 {SPECIAL_TYPE_FILTERS.map(type => (
                   <FilterToggle
                     key={type}
@@ -222,14 +224,14 @@ export function FilterMenu({
           )}
 
           {/* Numeric Values */}
-          <FilterSection title="Stats">
+          <FilterSection title={t("filters.stats")}>
             <div className="w-full grid grid-cols-3 gap-3">
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Level/Rank</label>
+                <label className="text-xs text-muted-foreground">{t("filters.levelRank")}</label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
-                    placeholder="Min"
+                    placeholder={t("filters.min")}
                     min={1}
                     max={12}
                     value={filters.levelMin ?? ''}
@@ -238,7 +240,7 @@ export function FilterMenu({
                   />
                   <Input
                     type="number"
-                    placeholder="Max"
+                    placeholder={t("filters.max")}
                     min={1}
                     max={12}
                     value={filters.levelMax ?? ''}
@@ -249,11 +251,11 @@ export function FilterMenu({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">ATK</label>
+                <label className="text-xs text-muted-foreground">{t("filters.atk")}</label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
-                    placeholder="Min"
+                    placeholder={t("filters.min")}
                     min={0}
                     value={filters.atkMin ?? ''}
                     onChange={(e) => updateNumericFilter('atkMin', e.target.value)}
@@ -261,7 +263,7 @@ export function FilterMenu({
                   />
                   <Input
                     type="number"
-                    placeholder="Max"
+                    placeholder={t("filters.max")}
                     min={0}
                     value={filters.atkMax ?? ''}
                     onChange={(e) => updateNumericFilter('atkMax', e.target.value)}
@@ -271,11 +273,11 @@ export function FilterMenu({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">DEF</label>
+                <label className="text-xs text-muted-foreground">{t("filters.def")}</label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
-                    placeholder="Min"
+                    placeholder={t("filters.min")}
                     min={0}
                     value={filters.defMin ?? ''}
                     onChange={(e) => updateNumericFilter('defMin', e.target.value)}
@@ -283,7 +285,7 @@ export function FilterMenu({
                   />
                   <Input
                     type="number"
-                    placeholder="Max"
+                    placeholder={t("filters.max")}
                     min={0}
                     value={filters.defMax ?? ''}
                     onChange={(e) => updateNumericFilter('defMax', e.target.value)}
@@ -293,11 +295,11 @@ export function FilterMenu({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Pendulum Scale</label>
+                <label className="text-xs text-muted-foreground">{t("filters.pendulumScale")}</label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
-                    placeholder="Min"
+                    placeholder={t("filters.min")}
                     min={0}
                     max={13}
                     value={filters.scaleMin ?? ''}
@@ -306,7 +308,7 @@ export function FilterMenu({
                   />
                   <Input
                     type="number"
-                    placeholder="Max"
+                    placeholder={t("filters.max")}
                     min={0}
                     max={13}
                     value={filters.scaleMax ?? ''}
@@ -317,10 +319,10 @@ export function FilterMenu({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Link Value</label>
+                <label className="text-xs text-muted-foreground">{t("filters.linkValue")}</label>
                 <Input
                   type="number"
-                  placeholder="Link"
+                  placeholder={t("filters.link")}
                   min={1}
                   max={6}
                   value={filters.linkValue ?? ''}
@@ -335,21 +337,21 @@ export function FilterMenu({
 
       {/* Actions */}
       {showActions && (
-        <div className="flex items-center gap-2 pt-2 border-t">
+        <div className="flex shrink-0 items-center gap-2 border-t pt-2">
           {onReset && (
             <Button variant="outline" size="sm" onClick={onReset}>
-              Reset
+              {t("common.reset")}
             </Button>
           )}
           <div className="flex-1" />
           {onCancel && (
             <Button variant="outline" size="sm" onClick={onCancel}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           )}
           {onConfirm && (
             <Button size="sm" onClick={onConfirm}>
-              Confirm
+              {t("common.confirm")}
             </Button>
           )}
         </div>

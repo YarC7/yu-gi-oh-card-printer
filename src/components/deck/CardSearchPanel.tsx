@@ -20,6 +20,7 @@ import { searchCustomCards } from "@/lib/custom-cards-service";
 import { YugiohCard, CardSearchFilters as Filters } from "@/types/card";
 import { Search, Filter, RotateCcw, Loader2, X, Database, Cloud } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/i18n/LanguageContext";
 
 interface CardSearchPanelProps {
   onCardClick?: (card: YugiohCard) => void;
@@ -109,6 +110,7 @@ export function CardSearchPanel({
   onAddCard,
   className,
 }: CardSearchPanelProps) {
+  const { t } = useLanguage();
   const [cards, setCards] = useState<YugiohCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
@@ -224,7 +226,7 @@ export function CardSearchPanel({
           <div className="flex-1 relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Tìm bài..."
+              placeholder={t("panel.placeholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="pl-8 pr-8 h-9"
@@ -249,11 +251,11 @@ export function CardSearchPanel({
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-full sm:max-w-lg">
+            <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
               <SheetHeader>
-                <SheetTitle>B? l?c</SheetTitle>
+                <SheetTitle>{t("filters.title")}</SheetTitle>
               </SheetHeader>
-              <div className="mt-6">
+              <div className="mb-2 mt-6 flex min-h-0 flex-1 flex-col">
                 <FilterMenu
                   filters={filterState}
                   onChange={setFilterState}
@@ -331,7 +333,7 @@ export function CardSearchPanel({
       <div className="flex-1 mt-3">
         {cards.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
-            {loading ? "Ðang tìm ki?m..." : "Nh?p tên bài d? tìm ki?m"}
+            {loading ? t("panel.searching") : t("panel.empty")}
           </div>
         ) : (
           <VirtualizedCardGrid
@@ -344,7 +346,7 @@ export function CardSearchPanel({
       </div>
 
       <div className="pt-2 border-t text-xs text-muted-foreground text-center">
-        Kéo th? ho?c double-click d? thêm bài
+        {t("panel.hint")}
       </div>
     </div>
   );

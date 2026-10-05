@@ -20,9 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useNavigate } from "react-router-dom";
-import { ShoppingCart, ArrowRight, Database, Cloud } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ShoppingCart, ArrowRight, Database, Cloud, Layers, X } from "lucide-react";
 import { useBanList } from "@/hooks/useBanList";
+import { useLanguage } from "@/i18n/LanguageContext";
 import { SEO } from "@/components/seo/SEO";
 import {
   Pagination,
@@ -47,6 +48,12 @@ export default function Search() {
   const [isSyncing, setIsSyncing] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { t } = useLanguage();
+  // Archetype handed off from a card modal (Deck Builder test-hand, etc.)
+  const pendingArchetype = useRef<string | null>(
+    (location.state as { archetype?: string } | null)?.archetype ?? null
+  );
   const { format, setFormat } = useBanList();
 
   // Check cache status on mount
@@ -64,18 +71,18 @@ export default function Search() {
 
   const handleSyncCache = async () => {
     setIsSyncing(true);
-    toast.info("Đang đồng bộ dữ liệu thẻ bài...");
-    
+    toast.info(t("search.syncing"));
+
     try {
       const result = await syncCardsToCache();
       if (result.success) {
-        toast.success(`Đã đồng bộ ${result.count} thẻ bài!`);
+        toast.success(t("search.synced", { count: result.count }));
         await checkCacheStatus();
       } else {
-        toast.error("Đồng bộ thất bại: " + result.error);
+        toast.error(t("search.syncFailed", { error: result.error ?? "" }));
       }
     } catch (error) {
-      toast.error("Có lỗi khi đồng bộ");
+      toast.error(t("search.syncError"));
     } finally {
       setIsSyncing(false);
     }
@@ -100,10 +107,16 @@ export default function Search() {
     setLoading(true);
     
     try {
+      // Archetype browsing shows ONLY cards with that exact archetype —
+      // custom cards are excluded (an undefined keyword would otherwise
+      // return *all* custom cards and pollute the related list).
+      const archetypeOnly = filters.archetype && !filters.name;
       // Search both YGOPRODeck API and custom cards in parallel
       const [apiResults, customResults] = await Promise.all([
         searchCards(filters, page, 50, abortController.signal),
-        searchCustomCards(filters.name),
+        archetypeOnly
+          ? Promise.resolve([] as YugiohCard[])
+          : searchCustomCards(filters.name),
       ]);
 
       // Check if request was aborted before updating state
@@ -121,16 +134,19 @@ export default function Search() {
       setCurrentPage(page);
 
       if (allResults.length === 0) {
-        toast.info("Không tìm thấy bài phù hợp");
+        toast.info(t("search.noResults"));
       } else if (customResults.length > 0) {
         toast.success(
-          `Tìm thấy ${customResults.length} bài custom + ${apiResults.cards.length} bài từ database`
+          t("search.foundMixed", {
+            custom: customResults.length,
+            api: apiResults.cards.length,
+          })
         );
       }
     } catch (error) {
       // Don't show error for aborted requests
       if ((error as Error).message !== 'Request aborted') {
-        toast.error("Có lỗi khi tìm kiếm");
+        toast.error(t("search.searchError"));
       }
     } finally {
       // Only clear loading if this is still the current request
@@ -138,13 +154,30 @@ export default function Search() {
         setLoading(false);
       }
     }
-  }, [cancelPendingRequests]);
+  }, [cancelPendingRequests, t]);
 
   const handlePageChange = useCallback((page: number) => {
     if (lastFilters) {
       handleSearch(lastFilters, page);
     }
   }, [lastFilters, handleSearch]);
+
+  const handleArchetypeSelect = useCallback((archetype: string) => {
+    setSelectedCard(null);
+    handleSearch({ archetype }, 1);
+  }, [handleSearch]);
+
+  // Consume a one-shot archetype handoff (e.g. Related Cards from a modal
+  // opened outside the Search page) exactly once on mount.
+  useEffect(() => {
+    if (pendingArchetype.current) {
+      const archetype = pendingArchetype.current;
+      pendingArchetype.current = null;
+      window.history.replaceState({}, "");
+      handleSearch({ archetype }, 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleReset = useCallback(() => {
     cancelPendingRequests();
@@ -158,12 +191,12 @@ export default function Search() {
 
   const handleAddCard = useCallback((card: YugiohCard) => {
     setSelectedCards((prev) => [...prev, card]);
-    toast.success(`Đã thêm ${card.name}`);
-  }, []);
+    toast.success(t("search.addedCard", { name: card.name }));
+  }, [t]);
 
   const handleGoToDeckBuilder = useCallback(() => {
     if (selectedCards.length === 0) {
-      toast.error("Chưa chọn bài nào");
+      toast.error(t("search.noneSelected"));
       return;
     }
 
@@ -213,7 +246,7 @@ export default function Search() {
     );
 
     navigate("/deck-builder");
-  }, [selectedCards, navigate]);
+  }, [selectedCards, navigate, t]);
 
   return (
     <>
@@ -229,7 +262,7 @@ export default function Search() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold">Tìm kiếm bài</h1>
+                <h1 className="text-2xl font-bold">{t("search.title")}</h1>
                 
                 {/* Data Source Badge */}
                 {cards.length > 0 && (
@@ -254,16 +287,18 @@ export default function Search() {
                 {/* Cache Status */}
                 {cacheStats.cardCount > 0 ? (
                   <span className="text-xs text-muted-foreground">
-                    {cacheStats.cardCount.toLocaleString()} cards cached
+                    {t("search.cacheCount", {
+                      count: cacheStats.cardCount.toLocaleString(),
+                    })}
                   </span>
                 ) : (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleSyncCache}
                     disabled={isSyncing}
                   >
-                    {isSyncing ? 'Syncing...' : 'Cache Cards'}
+                    {isSyncing ? t("search.syncingBtn") : t("search.cacheBtn")}
                   </Button>
                 )}
               </div>
@@ -282,10 +317,10 @@ export default function Search() {
                   <>
                     <Badge variant="secondary" className="gap-1">
                       <ShoppingCart className="h-3 w-3" />
-                      {selectedCards.length} bài đã chọn
+                      {t("search.selected", { count: selectedCards.length })}
                     </Badge>
                     <Button size="sm" onClick={handleGoToDeckBuilder}>
-                      Đến Deck Builder
+                      {t("search.goBuilder")}
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
                   </>
@@ -298,19 +333,38 @@ export default function Search() {
               loading={loading}
             />
 
+            {/* Archetype browser disabled for now — re-enable by rendering
+                <ArchetypeBrowser onSelect={handleArchetypeSelect} /> here.
+                Related-cards search via the modal still works. */}
+
+            {lastFilters?.archetype && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="gap-1.5">
+                  <Layers className="h-3 w-3" />
+                  {t("search.archetypeBadge", { name: lastFilters.archetype })}
+                  <button onClick={handleReset} aria-label={t("search.clearArchetype")}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              </div>
+            )}
+
             <CardGrid
               cards={cards}
               loading={loading}
               onCardClick={setSelectedCard}
               onAddCard={handleAddCard}
-              emptyMessage="Nhập tên bài hoặc sử dụng bộ lọc để tìm kiếm"
+              emptyMessage={t("search.gridEmpty")}
             />
 
             {/* Pagination */}
             {totalCount > 50 && (
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  Hiển thị {cards.length} / {totalCount} kết quả
+                  {t("search.showing", {
+                    shown: cards.length,
+                    total: totalCount,
+                  })}
                 </div>
                 <Pagination>
                   <PaginationContent>
@@ -372,6 +426,7 @@ export default function Search() {
           open={!!selectedCard}
           onOpenChange={(open) => !open && setSelectedCard(null)}
           onAddCard={handleAddCard}
+          onViewArchetype={handleArchetypeSelect}
         />
       </div>
     </>

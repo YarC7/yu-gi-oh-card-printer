@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { BanListProvider } from "@/hooks/useBanList";
+import { LanguageProvider } from "@/i18n/LanguageContext";
 import { Suspense, lazy } from "react";
 
 // Lazy load components for code splitting
@@ -25,9 +26,10 @@ const PageLoader = () => (
 );
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <BanListProvider>
+  <LanguageProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BanListProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -47,6 +49,7 @@ const App = () => (
       </BanListProvider>
     </AuthProvider>
   </QueryClientProvider>
+  </LanguageProvider>
 );
 
 export default App;

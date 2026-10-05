@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Download } from 'lucide-react';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface ExportSettingsProps {
   settings: Settings;
@@ -20,6 +21,7 @@ export function ExportSettings({
   loading,
   cardCount,
 }: ExportSettingsProps) {
+  const { t } = useLanguage();
   const updateSetting = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     onSettingsChange({ ...settings, [key]: value });
   };
@@ -36,7 +38,7 @@ export function ExportSettings({
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label className="text-xs">Chiều rộng (cm)</Label>
+          <Label className="text-xs">{t('export.width')}</Label>
           <Input
             type="number"
             step="0.1"
@@ -46,7 +48,7 @@ export function ExportSettings({
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">Chiều cao (cm)</Label>
+          <Label className="text-xs">{t('export.height')}</Label>
           <Input
             type="number"
             step="0.1"
@@ -58,7 +60,7 @@ export function ExportSettings({
       </div>
 
       <div>
-        <Label className="text-xs mb-2 block">Định dạng</Label>
+        <Label className="text-xs mb-2 block">{t('export.format')}</Label>
         <RadioGroup
           value={settings.format}
           onValueChange={(v) => updateSetting('format', v as 'docx' | 'pdf')}
@@ -76,7 +78,7 @@ export function ExportSettings({
       </div>
 
       <div className="flex justify-between text-xs text-muted-foreground">
-        <span>{cardCount} bài • {pagesNeeded} trang</span>
+        <span>{t('export.summary', { count: cardCount, pages: pagesNeeded })}</span>
         <span>{settings.cardWidth} x {settings.cardHeight} cm</span>
       </div>
 
@@ -87,7 +89,7 @@ export function ExportSettings({
           onClick={handleReset}
           className="flex-1"
         >
-          Reset
+          {t('common.reset')}
         </Button>
         <Button
           size="sm"
@@ -96,7 +98,7 @@ export function ExportSettings({
           className="flex-1"
         >
           <Download className="h-4 w-4 mr-1.5" />
-          {loading ? 'Đang tạo...' : 'Xuất file'}
+          {loading ? t('export.exportingBtn') : t('export.exportBtn')}
         </Button>
       </div>
     </div>

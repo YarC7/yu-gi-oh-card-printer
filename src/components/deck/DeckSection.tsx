@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 // Check if card is an Extra Deck monster (Fusion, Synchro, XYZ, Link)
 const isExtraDeckMonster = (card: YugiohCard): boolean => {
@@ -38,6 +39,7 @@ export function DeckSection({
   onDrop,
   className,
 }: DeckSectionProps) {
+  const { t } = useLanguage();
   const count = cards.reduce((sum, c) => sum + c.quantity, 0);
   const isOverLimit = maxCount !== undefined && count > maxCount;
 
@@ -55,13 +57,13 @@ export function DeckSection({
         
         // Validate Extra Deck: only Fusion, Synchro, XYZ, Link monsters allowed
         if (section === 'extra' && !isExtraDeckMonster(card)) {
-          toast.error('Extra Deck chỉ chứa quái thú Fusion, Synchro, XYZ hoặc Link');
+          toast.error(t("deck.extraRule"));
           return;
         }
         
         // Validate Main Deck: Extra Deck monsters cannot go here
         if (section === 'main' && isExtraDeckMonster(card)) {
-          toast.error('Quái thú Fusion, Synchro, XYZ, Link phải vào Extra Deck');
+          toast.error(t("deck.mainRule"));
           return;
         }
         
@@ -94,7 +96,7 @@ export function DeckSection({
 
       {cards.length === 0 ? (
         <div className="py-6 sm:py-8 text-center text-sm text-muted-foreground">
-          Kéo thả bài vào đây
+          {t("grids.dropHere")}
         </div>
       ) : (
         <div className="grid grid-cols-5 xs:grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-8 xl:grid-cols-10 gap-1">

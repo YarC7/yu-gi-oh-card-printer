@@ -16,6 +16,7 @@ import {
 import { useDeck } from "@/hooks/useDeck";
 import { useAuth } from "@/hooks/useAuth";
 import { useBanList } from "@/hooks/useBanList";
+import { useLanguage } from "@/i18n/LanguageContext";
 import {
   DEFAULT_EXPORT_SETTINGS,
   ExportSettings as Settings,
@@ -49,9 +50,11 @@ import {
   Shuffle,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function DeckBuilder() {
+  const navigate = useNavigate();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const { getBanStatus, format, setFormat } = useBanList();
   const {
@@ -100,7 +103,7 @@ export default function DeckBuilder() {
 
     // Check if card is Forbidden
     if (banStatus === "Forbidden") {
-      toast.error(`Bài "${card.name}" bị cấm trong ${format} ban list`);
+      toast.error(t("deck.banForbidden", { name: card.name, format }));
       return false;
     }
 
@@ -115,16 +118,12 @@ export default function DeckBuilder() {
     // Check limited restrictions
     if (banStatus === "Limited") {
       if (currentCount >= 1) {
-        toast.error(
-          `Bài "${card.name}" chỉ được phép có 1 lá trong deck (${format} Limited)`
-        );
+        toast.error(t("deck.banLimited1", { name: card.name, format }));
         return false;
       }
     } else if (banStatus === "Semi-Limited") {
       if (currentCount >= 2) {
-        toast.error(
-          `Bài "${card.name}" chỉ được phép có 2 lá trong deck (${format} Semi-Limited)`
-        );
+        toast.error(t("deck.banLimited2", { name: card.name, format }));
         return false;
       }
     }
@@ -146,7 +145,7 @@ export default function DeckBuilder() {
     const mainDeckCards = deck.cards.filter((card) => card.section === "main");
 
     if (mainDeckCards.length === 0) {
-      toast.error("Main deck trống, không thể test hand");
+      toast.error(t("deck.testEmpty"));
       return;
     }
 
@@ -159,7 +158,7 @@ export default function DeckBuilder() {
     });
 
     if (cardPool.length < 5) {
-      toast.error("Main deck cần ít nhất 5 lá bài để test hand");
+      toast.error(t("deck.testNeed5"));
       return;
     }
 
@@ -189,7 +188,7 @@ export default function DeckBuilder() {
     });
 
     if (cardPool.length === 0) {
-      toast.error("Không còn bài nào để rút thêm");
+      toast.error(t("deck.noMoreDraw"));
       return;
     }
 
@@ -204,7 +203,7 @@ export default function DeckBuilder() {
 
   const handleFileSelect = async (file: File) => {
     setShowImportProgress(true);
-    setImportProgress({ current: 0, total: 3, stage: "Đọc file..." });
+    setImportProgress({ current: 0, total: 3, stage: t("deck.readStage") });
 
     try {
       const content = await readFileAsText(file);
@@ -214,7 +213,7 @@ export default function DeckBuilder() {
       const allIds = [...parsed.main, ...parsed.extra, ...parsed.side];
 
       if (allIds.length === 0) {
-        toast.error("File không chứa ID bài hợp lệ");
+        toast.error(t("deck.invalidIds"));
         setShowImportProgress(false);
         return;
       }
@@ -222,12 +221,12 @@ export default function DeckBuilder() {
       setImportProgress({
         current: 1,
         total: 3,
-        stage: `Tải ${allIds.length} bài...`,
+        stage: t("deck.loadStage", { count: allIds.length }),
       });
 
       const { cards, notFoundIds } = await getCardsByIds(allIds);
 
-      setImportProgress({ current: 2, total: 3, stage: "Xử lý deck..." });
+      setImportProgress({ current: 2, total: 3, stage: t("deck.processStage") });
 
       if (notFoundIds.length > 0) {
         sessionStorage.setItem("notFoundCardIds", JSON.stringify(notFoundIds));
@@ -255,15 +254,15 @@ export default function DeckBuilder() {
       setCards(deckCards);
       setCurrentDeckId(null); // Reset saved deck ID since this is a new import
 
-      setImportProgress({ current: 3, total: 3, stage: "Hoàn tất!" });
+      setImportProgress({ current: 3, total: 3, stage: t("deck.doneStage") });
 
       setTimeout(() => {
         setShowImportProgress(false);
         setShowImportModal(false);
-        toast.success("Đã import deck thành công!");
+        toast.success(t("deck.importedOk"));
       }, 500);
     } catch (error) {
-      toast.error("Có lỗi khi đọc file");
+      toast.error(t("deck.readError"));
       console.error(error);
       setShowImportProgress(false);
     }
@@ -301,7 +300,7 @@ export default function DeckBuilder() {
         const notFoundIds = JSON.parse(notFoundRaw) as number[];
         if (notFoundIds.length > 0) {
           toast.warning(
-            `${notFoundIds.length} bài không tìm thấy trong database (có thể là bài pre-release)`,
+            t("deck.notFoundWarn", { count: notFoundIds.length }),
             {
               description: `ID: ${notFoundIds.slice(0, 5).join(", ")}${
                 notFoundIds.length > 5 ? "..." : ""
@@ -313,16 +312,18 @@ export default function DeckBuilder() {
         sessionStorage.removeItem("notFoundCardIds");
       }
     }
+    // Mount-once import handoff; t is captured at mount intentionally.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setCards]);
 
   const handleSaveDeck = async () => {
     if (!user) {
-      toast.error("Vui lòng đăng nhập để lưu deck");
+      toast.error(t("deck.needLoginSave"));
       return;
     }
 
     if (deck.cards.length === 0) {
-      toast.error("Deck trống");
+      toast.error(t("deck.emptyDeck"));
       return;
     }
 
@@ -331,17 +332,17 @@ export default function DeckBuilder() {
       if (currentDeckId) {
         const success = await updateDeck(currentDeckId, deck);
         if (success) {
-          toast.success("Đã cập nhật deck!");
+          toast.success(t("deck.deckUpdated"));
         } else {
-          toast.error("Có lỗi khi cập nhật");
+          toast.error(t("deck.updateError"));
         }
       } else {
         const result = await saveDeck(deck, user.id);
         if (result) {
           setCurrentDeckId(result.id);
-          toast.success("Đã lưu deck!");
+          toast.success(t("deck.deckSaved"));
         } else {
-          toast.error("Có lỗi khi lưu");
+          toast.error(t("deck.saveError"));
         }
       }
     } finally {
@@ -349,24 +350,8 @@ export default function DeckBuilder() {
     }
   };
 
-  const buildImageFetchUrl = (url: string) => {
-    try {
-      const u = new URL(url);
-      if (u.hostname === "images.ygoprodeck.com") {
-        const base = import.meta.env.VITE_SUPABASE_URL;
-        return `${base}/functions/v1/image-proxy?url=${encodeURIComponent(
-          url
-        )}`;
-      }
-    } catch {
-      // ignore
-    }
-    return url;
-  };
-
   const loadImageAsBase64 = async (url: string): Promise<string> => {
-    const fetchUrl = buildImageFetchUrl(url);
-    const response = await fetch(fetchUrl);
+    const response = await fetch(url);
     if (!response.ok) throw new Error("Fetch failed");
     const blob = await response.blob();
 
@@ -384,7 +369,7 @@ export default function DeckBuilder() {
   const handleExport = async () => {
     const cards = getAllCardsFlat();
     if (cards.length === 0) {
-      toast.error("Deck trống");
+      toast.error(t("deck.emptyDeck"));
       return;
     }
 
@@ -453,9 +438,9 @@ export default function DeckBuilder() {
         );
       }
 
-      toast.success("Đã xuất file PDF!");
+      toast.success(t("deck.pdfDone"));
     } catch (error) {
-      toast.error("Có lỗi khi xuất file");
+      toast.error(t("deck.exportError"));
       console.error(error);
     } finally {
       setExporting(false);
@@ -475,11 +460,11 @@ export default function DeckBuilder() {
               value={deck.name}
               onChange={(e) => setDeckName(e.target.value)}
               className="text-base sm:text-lg font-semibold w-full max-w-[180px] sm:max-w-[200px] h-9"
-              placeholder="Tên deck"
+              placeholder={t("deck.namePh")}
             />
             {currentDeckId && (
               <span className="text-xs text-muted-foreground hidden sm:inline">
-                Đã lưu
+                {t("deck.saved")}
               </span>
             )}
           </div>
@@ -502,7 +487,9 @@ export default function DeckBuilder() {
             >
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">
-                {exporting ? "Đang xuất..." : `Xuất (${getTotalCardCount()})`}
+                {exporting
+                  ? t("deck.exporting")
+                  : t("deck.exportCount", { count: getTotalCardCount() })}
               </span>
               <span className="sm:hidden">
                 {exporting ? "..." : getTotalCardCount()}
@@ -515,7 +502,7 @@ export default function DeckBuilder() {
               className="gap-1.5"
             >
               <PlusCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Thêm custom</span>
+              <span className="hidden sm:inline">{t("deck.addCustom")}</span>
             </Button>{" "}
             <Button
               variant="outline"
@@ -525,18 +512,18 @@ export default function DeckBuilder() {
               className="gap-1.5"
             >
               <Shuffle className="h-4 w-4" />
-              <span className="hidden sm:inline">Test Hand</span>
+              <span className="hidden sm:inline">{t("deck.testHand")}</span>
             </Button>{" "}
             <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <Upload className="h-4 w-4" />
-                  <span className="hidden sm:inline">Import File</span>
+                  <span className="hidden sm:inline">{t("deck.importFile")}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Import Deck từ File</DialogTitle>
+                  <DialogTitle>{t("deck.importTitle")}</DialogTitle>
                 </DialogHeader>
                 <FileUpload onFileSelect={handleFileSelect} />
               </DialogContent>
@@ -548,12 +535,12 @@ export default function DeckBuilder() {
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <SettingsIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">Cài đặt xuất</span>
+                  <span className="hidden sm:inline">{t("deck.exportSettings")}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Cài đặt xuất file</DialogTitle>
+                  <DialogTitle>{t("deck.exportSettingsTitle")}</DialogTitle>
                 </DialogHeader>
                 <ExportSettings
                   settings={settings}
@@ -576,12 +563,12 @@ export default function DeckBuilder() {
             >
               <Save className="h-4 w-4" />
               <span className="hidden sm:inline">
-                {saving ? "Đang lưu..." : "Lưu"}
+                {saving ? t("deck.saving") : t("deck.save")}
               </span>
             </Button>
             <Button variant="outline" size="sm" onClick={clearDeck}>
               <Trash2 className="h-4 w-4" />
-              <span className="hidden sm:inline ml-1.5">Xóa</span>
+              <span className="hidden sm:inline ml-1.5">{t("deck.clear")}</span>
             </Button>
           </div>
         </div>
@@ -591,7 +578,7 @@ export default function DeckBuilder() {
           <DialogContent className="sm:max-w-[900px]">
             <DialogHeader>
               <DialogTitle>
-                Test Hand - {testHand.length} bài ngẫu nhiên
+                {t("deck.testHandTitle", { count: testHand.length })}
               </DialogTitle>
             </DialogHeader>
             <div
@@ -630,7 +617,7 @@ export default function DeckBuilder() {
                 className="gap-2"
               >
                 <Shuffle className="h-4 w-4" />
-                Rút lại (5 bài)
+                {t("deck.redraw")}
               </Button>
               <Button
                 onClick={drawAdditionalCard}
@@ -646,9 +633,9 @@ export default function DeckBuilder() {
         {!user && (
           <div className="mb-4 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
             <Link to="/auth" className="text-primary hover:underline">
-              Đăng nhập
+              {t("deck.loginBannerA")}
             </Link>{" "}
-            để lưu deck và xem lịch sử
+            {t("deck.loginBannerB")}
           </div>
         )}
 
@@ -670,8 +657,8 @@ export default function DeckBuilder() {
       {/* Export Progress Dialog */}
       <ProgressDialog
         open={showExportProgress}
-        title="Đang xuất PDF..."
-        description="Đang tải và xử lý hình ảnh"
+        title={t("deck.exportingPdf")}
+        description={t("deck.exportingDesc")}
         progress={exportProgress.current}
         total={exportProgress.total}
       />
@@ -679,7 +666,7 @@ export default function DeckBuilder() {
       {/* Import Progress Dialog */}
       <ProgressDialog
         open={showImportProgress}
-        title="Đang import deck..."
+        title={t("deck.importingTitle")}
         description={importProgress.stage}
         progress={importProgress.current}
         total={importProgress.total}
@@ -691,6 +678,9 @@ export default function DeckBuilder() {
         open={!!selectedCard}
         onOpenChange={(open) => !open && setSelectedCard(null)}
         onAddCard={() => {}} // Test hand modal doesn't need add card functionality
+        onViewArchetype={(archetype) =>
+          navigate("/search", { state: { archetype } })
+        }
       />
     </div>
   );

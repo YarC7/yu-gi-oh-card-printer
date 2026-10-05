@@ -4,6 +4,7 @@ import { CardImage } from "./CardImage";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/i18n/LanguageContext";
 
 interface CardGridProps {
   cards: YugiohCard[];
@@ -19,9 +20,10 @@ export const CardGrid = memo<CardGridProps>(function CardGrid({
   onCardClick,
   onAddCard,
   loading,
-  emptyMessage = "Không tìm thấy bài nào",
+  emptyMessage,
   className,
 }) {
+  const { t } = useLanguage();
   if (loading) {
     return (
       <div
@@ -43,7 +45,7 @@ export const CardGrid = memo<CardGridProps>(function CardGrid({
   if (cards.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-        <p>{emptyMessage}</p>
+        <p>{emptyMessage ?? t("search.gridNoResults")}</p>
       </div>
     );
   }

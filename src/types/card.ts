@@ -17,6 +17,10 @@ export interface YugiohCard {
   card_sets?: CardSet[];
   card_images: CardImage[];
   card_prices?: CardPrice[];
+  /** Set for user-created cards (see customCardToYugiohCard). */
+  isCustom?: boolean;
+  /** Auth user id of the custom card author; present only when isCustom. */
+  customUserId?: string;
 }
 
 export interface CardImage {

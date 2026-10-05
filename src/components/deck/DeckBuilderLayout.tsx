@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/i18n/LanguageContext";
 
 interface DeckBuilderLayoutProps {
   cards: DeckCard[];
@@ -40,6 +42,8 @@ export function DeckBuilderLayout({
 }: DeckBuilderLayoutProps) {
   const [selectedCard, setSelectedCard] = useState<YugiohCard | null>(null);
   const [showSearchSheet, setShowSearchSheet] = useState(false);
+  const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const mainDeck = cards.filter((c) => c.section === "main");
   const extraDeck = cards.filter((c) => c.section === "extra");
@@ -63,9 +67,9 @@ export function DeckBuilderLayout({
         onAddCard(card, "extra");
       } else if (sideDeckCount < 15) {
         onAddCard(card, "side");
-        toast.info("Extra Deck đầy, đã thêm vào Side Deck");
+        toast.info(t("deck.extraFull"));
       } else {
-        toast.error("Extra Deck và Side Deck đã đầy");
+        toast.error(t("deck.decksFull"));
       }
     } else {
       // Main deck card
@@ -73,9 +77,9 @@ export function DeckBuilderLayout({
         onAddCard(card, "main");
       } else if (sideDeckCount < 15) {
         onAddCard(card, "side");
-        toast.info("Main Deck đầy, đã thêm vào Side Deck");
+        toast.info(t("deck.mainFull"));
       } else {
-        toast.error("Main Deck và Side Deck đã đầy");
+        toast.error(t("deck.mainsFull"));
       }
     }
   };
@@ -134,7 +138,7 @@ export function DeckBuilderLayout({
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[85vh] rounded-t-xl">
             <SheetHeader className="pb-2">
-              <SheetTitle>Tìm kiếm bài</SheetTitle>
+              <SheetTitle>{t("search.title")}</SheetTitle>
             </SheetHeader>
             <div className="h-[calc(100%-50px)] overflow-auto">
               <CardSearchPanel
@@ -156,6 +160,9 @@ export function DeckBuilderLayout({
         open={!!selectedCard}
         onOpenChange={(open) => !open && setSelectedCard(null)}
         onAddCard={handleQuickAdd}
+        onViewArchetype={(archetype) =>
+          navigate("/search", { state: { archetype } })
+        }
       />
     </div>
   );

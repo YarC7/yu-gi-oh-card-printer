@@ -95,6 +95,8 @@ export function customCardToYugiohCard(row: CustomCardRow): YugiohCard {
     linkval: row.link_val || undefined,
     scale: row.scale || undefined,
     archetype: row.archetype || undefined,
+    isCustom: true,
+    customUserId: row.user_id,
     card_images: row.image_url
       ? [{
           id: -Date.now(),
@@ -201,4 +203,31 @@ export async function deleteCustomCard(cardId: string): Promise<boolean> {
   const { error } = await supabase.from('custom_cards').delete().eq('id', cardId);
 
   return !error;
+}
+
+// Author display-name cache (profiles.display_name by auth user id).
+const authorNameCache = new Map<string, string | null>();
+
+/**
+ * Resolve a custom card author's display name. Returns null when the
+ * profile is missing or unreadable (RLS) — callers should hide the label.
+ */
+export async function getCustomCardAuthorName(userId: string): Promise<string | null> {
+  if (authorNameCache.has(userId)) return authorNameCache.get(userId) ?? null;
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    const name = data?.display_name ?? null;
+    authorNameCache.set(userId, name);
+    return name;
+  } catch (err) {
+    console.error('Error fetching author profile:', err);
+    return null;
+  }
 }

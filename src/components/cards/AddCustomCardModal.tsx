@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { createCustomCard, customCardToYugiohCard } from '@/lib/custom-cards-service';
 import { toast } from 'sonner';
 import { ImageOff, Upload, Loader2, Filter } from 'lucide-react';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface AddCustomCardModalProps {
   open: boolean;
@@ -20,6 +21,7 @@ interface AddCustomCardModalProps {
 
 export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomCardModalProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const savingRef = useRef(false);
   
@@ -97,7 +99,7 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        toast.error('File quá lớn. Tối đa 5MB');
+        toast.error(t('customCard.fileTooBig'));
         return;
       }
       setImageFile(file);
@@ -108,12 +110,12 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      toast.error('Vui lòng nhập tên bài');
+      toast.error(t('customCard.needName'));
       return;
     }
 
     if (!user) {
-      toast.error('Vui lòng đăng nhập để lưu bài custom');
+      toast.error(t('customCard.needLogin'));
       return;
     }
 
@@ -140,15 +142,15 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
         const card = customCardToYugiohCard(result);
         const targetSection = isExtraDeck() ? 'extra' : section;
         onAddCard(card, targetSection);
-        toast.success(`Đã lưu và thêm "${name}" vào deck`);
+        toast.success(t('customCard.savedToast', { name }));
         resetForm();
         onOpenChange(false);
       } else {
-        toast.error('Có lỗi khi lưu bài');
+        toast.error(t('customCard.saveError'));
       }
     } catch (error) {
       console.error(error);
-      toast.error('Có lỗi khi lưu bài');
+      toast.error(t('customCard.saveError'));
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -172,7 +174,7 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
     if (filters.cardTypes.length) parts.push(filters.cardTypes.join(', '));
     if (filters.attributes.length) parts.push(filters.attributes.join(', '));
     if (filters.monsterTypes.length) parts.push(filters.monsterTypes[0] + (filters.monsterTypes.length > 1 ? '...' : ''));
-    return parts.join(' | ') || 'Chưa chọn';
+    return parts.join(' | ') || t('customCard.notChosen');
   };
 
   // Prevent closing dialog while saving
@@ -189,34 +191,39 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
         onEscapeKeyDown={(e) => savingRef.current && e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Thêm bài Pre-release / Custom</DialogTitle>
+          <DialogTitle>{t('customCard.title')}</DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="basic" className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid grid-cols-2">
-            <TabsTrigger value="basic">Thông tin cơ bản</TabsTrigger>
+            <TabsTrigger value="basic">{t('customCard.tabBasic')}</TabsTrigger>
             <TabsTrigger value="filters" className="gap-2">
               <Filter className="h-4 w-4" />
-              Thuộc tính ({filters.cardTypes.length + filters.attributes.length + filters.monsterTypes.length})
+              {t('customCard.tabFilters', {
+                count:
+                  filters.cardTypes.length +
+                  filters.attributes.length +
+                  filters.monsterTypes.length,
+              })}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="flex-1 overflow-y-auto space-y-4 mt-4">
             {/* Card Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Tên bài *</Label>
+              <Label htmlFor="name">{t('customCard.nameLabel')}</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Nhập tên bài..."
+                placeholder={t('customCard.namePh')}
                 maxLength={100}
               />
             </div>
 
             {/* Image Upload */}
             <div className="space-y-2">
-              <Label>Hình ảnh</Label>
+              <Label>{t('customCard.imageLabel')}</Label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -232,7 +239,7 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
                   className="flex-shrink-0"
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  Chọn ảnh
+                  {t('customCard.chooseImage')}
                 </Button>
                 
                 {imagePreview && (
@@ -259,7 +266,7 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
 
             {/* Selected filters summary */}
             <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm font-medium mb-1">Thuộc tính đã chọn:</p>
+              <p className="text-sm font-medium mb-1">{t('customCard.chosenProps')}</p>
               <p className="text-sm text-muted-foreground">{getFilterSummary()}</p>
               {filters.atkMin !== undefined && (
                 <p className="text-xs text-muted-foreground">ATK: {filters.atkMin}</p>
@@ -280,11 +287,11 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
 
             {/* Archetype */}
             <div className="space-y-2">
-              <Label>Archetype (tuỳ chọn)</Label>
+              <Label>{t('customCard.archetypeLabel')}</Label>
               <Input
                 value={archetype}
                 onChange={(e) => setArchetype(e.target.value)}
-                placeholder="VD: Blue-Eyes, Dark Magician..."
+                placeholder={t('customCard.archetypePh')}
                 maxLength={50}
               />
             </div>
@@ -292,7 +299,7 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
             {/* Section to add */}
             {!isExtraDeck() && !isSpellTrap && (
               <div className="space-y-2">
-                <Label>Thêm vào</Label>
+                <Label>{t('customCard.addTo')}</Label>
                 <div className="flex gap-2">
                   {['main', 'side'].map((s) => (
                     <Button
@@ -310,17 +317,17 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
             )}
             {isExtraDeck() && (
               <p className="text-xs text-muted-foreground">
-                * Bài này sẽ tự động thêm vào Extra Deck
+                {t('customCard.extraAuto')}
               </p>
             )}
 
             {/* Description */}
             <div className="space-y-2">
-              <Label>Mô tả / Hiệu ứng</Label>
+              <Label>{t('customCard.descLabel')}</Label>
               <Textarea
                 value={desc}
                 onChange={(e) => setDesc(e.target.value)}
-                placeholder="Nhập hiệu ứng bài..."
+                placeholder={t('customCard.descPh')}
                 rows={4}
                 maxLength={1000}
               />
@@ -338,26 +345,26 @@ export function AddCustomCardModal({ open, onOpenChange, onAddCard }: AddCustomC
 
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={resetForm} disabled={saving}>
-            Reset
+            {t('common.reset')}
           </Button>
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={saving}>
-            Huỷ
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={saving || !user}>
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Đang lưu...
+                {t('customCard.savingBtn')}
               </>
             ) : (
-              'Lưu & Thêm'
+              t('customCard.saveAdd')
             )}
           </Button>
         </DialogFooter>
 
         {!user && (
           <p className="text-xs text-destructive text-center">
-            Vui lòng đăng nhập để lưu bài custom
+            {t('customCard.loginWarn')}
           </p>
         )}
       </DialogContent>

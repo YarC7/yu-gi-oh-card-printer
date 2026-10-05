@@ -9,6 +9,7 @@ import { getCardsByIds } from "@/lib/ygoprodeck-api";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { SEO } from "@/components/seo/SEO";
+import { useLanguage } from "@/i18n/LanguageContext";
 import {
   Search,
   FileText,
@@ -45,27 +46,36 @@ const FEATURED_CARDS = [
 const FEATURES = [
   {
     icon: Upload,
-    title: "Import File",
-    description: "Hỗ trợ .ydk và .json từ các simulator phổ biến",
+    titleKey: "home.f1t",
+    descKey: "home.f1d",
   },
   {
     icon: Search,
-    title: "Database 12,000+ bài",
-    description: "Tìm kiếm với bộ lọc nâng cao theo type, attribute, level...",
+    titleKey: "home.f2t",
+    descKey: "home.f2d",
   },
   {
     icon: FileText,
-    title: "Deck Builder",
-    description: "Xây dựng deck với Main, Extra và Side Deck đầy đủ",
+    titleKey: "home.f3t",
+    descKey: "home.f3d",
   },
   {
     icon: Printer,
-    title: "Xuất PDF/Word",
-    description: "Kích thước chuẩn 5.9 x 8.6 cm, sẵn sàng để in proxy",
+    titleKey: "home.f4t",
+    descKey: "home.f4d",
   },
 ];
 
+const STEPS = [
+  { step: "01", titleKey: "home.s1t", descKey: "home.s1d" },
+  { step: "02", titleKey: "home.s2t", descKey: "home.s2d" },
+  { step: "03", titleKey: "home.s3t", descKey: "home.s3d" },
+];
+
+const PERKS = ["home.perk1", "home.perk2", "home.perk3"];
+
 export default function Index() {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [importProgress, setImportProgress] = useState({
     current: 0,
@@ -78,7 +88,7 @@ export default function Index() {
   const handleFileSelect = async (file: File) => {
     setLoading(true);
     setShowImportProgress(true);
-    setImportProgress({ current: 0, total: 3, stage: "Đọc file..." });
+    setImportProgress({ current: 0, total: 3, stage: t("deck.readStage") });
 
     try {
       const content = await readFileAsText(file);
@@ -88,7 +98,7 @@ export default function Index() {
       const allIds = [...parsed.main, ...parsed.extra, ...parsed.side];
 
       if (allIds.length === 0) {
-        toast.error("File không chứa ID bài hợp lệ");
+        toast.error(t("home.importError"));
         setLoading(false);
         setShowImportProgress(false);
         return;
@@ -97,12 +107,12 @@ export default function Index() {
       setImportProgress({
         current: 1,
         total: 3,
-        stage: `Tải ${allIds.length} bài...`,
+        stage: t("deck.loadStage", { count: allIds.length }),
       });
 
       const { cards, notFoundIds } = await getCardsByIds(allIds);
 
-      setImportProgress({ current: 2, total: 3, stage: "Xử lý deck..." });
+      setImportProgress({ current: 2, total: 3, stage: t("deck.processStage") });
 
       if (notFoundIds.length > 0) {
         sessionStorage.setItem("notFoundCardIds", JSON.stringify(notFoundIds));
@@ -112,13 +122,13 @@ export default function Index() {
 
       sessionStorage.setItem("importedDeck", JSON.stringify({ parsed, cards }));
 
-      setImportProgress({ current: 3, total: 3, stage: "Hoàn tất!" });
+      setImportProgress({ current: 3, total: 3, stage: t("deck.doneStage") });
 
       setTimeout(() => {
         navigate("/deck-builder");
       }, 300);
     } catch (error) {
-      toast.error("Có lỗi khi đọc file");
+      toast.error(t("home.importReadError"));
       console.error(error);
       setShowImportProgress(false);
     } finally {
@@ -209,7 +219,7 @@ export default function Index() {
               >
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
                   <Sparkles className="h-4 w-4" />
-                  Miễn phí • Không cần đăng ký
+                  {t("home.badge")}
                 </div>
               </motion.div>
 
@@ -230,10 +240,9 @@ export default function Index() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
               >
-                Chuyển đổi deck Yu-Gi-Oh! của bạn thành file PDF/Word với kích
-                thước chuẩn{" "}
-                <strong className="text-foreground">5.9 x 8.6 cm</strong>, sẵn
-                sàng để in proxy chất lượng cao
+                {t("home.heroDescA")}{" "}
+                <strong className="text-foreground">{t("home.heroSize")}</strong>
+                {t("home.heroDescB")}
               </motion.p>
 
               <motion.div
@@ -248,7 +257,7 @@ export default function Index() {
                   onClick={() => navigate("/deck-builder")}
                 >
                   <Zap className="h-5 w-5" />
-                  Bắt đầu ngay
+                  {t("home.startNow")}
                   <ArrowRight className="h-5 w-5" />
                 </Button>
                 <Button
@@ -258,7 +267,7 @@ export default function Index() {
                   onClick={() => navigate("/search")}
                 >
                   <Search className="h-5 w-5" />
-                  Tìm kiếm bài
+                  {t("home.searchCards")}
                 </Button>
               </motion.div>
             </div>
@@ -288,10 +297,10 @@ export default function Index() {
             >
               <div className="text-center mb-8">
                 <h2 className="text-2xl sm:text-3xl font-bold mb-3">
-                  Import Deck của bạn
+                  {t("home.importTitle")}
                 </h2>
                 <p className="text-muted-foreground">
-                  Kéo thả file .ydk hoặc .json để bắt đầu
+                  {t("home.importDesc")}
                 </p>
               </div>
 
@@ -314,17 +323,17 @@ export default function Index() {
               transition={{ duration: 0.6 }}
             >
               <h2 className="text-2xl sm:text-3xl font-bold mb-3">
-                Tính năng nổi bật
+                {t("home.featuresTitle")}
               </h2>
               <p className="text-muted-foreground max-w-xl mx-auto">
-                Công cụ mạnh mẽ để tạo proxy card Yu-Gi-Oh! một cách dễ dàng
+                {t("home.featuresDesc")}
               </p>
             </motion.div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
               {FEATURES.map((feature, i) => (
                 <motion.div
-                  key={feature.title}
+                  key={feature.titleKey}
                   className="glass-card rounded-xl p-6 hover:shadow-lg transition-shadow"
                   initial={{ opacity: 0, y: 40 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -335,10 +344,10 @@ export default function Index() {
                     <feature.icon className="h-6 w-6 text-primary" />
                   </div>
                   <h3 className="font-semibold text-lg mb-2">
-                    {feature.title}
+                    {t(feature.titleKey)}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {feature.description}
+                    {t(feature.descKey)}
                   </p>
                 </motion.div>
               ))}
@@ -357,29 +366,13 @@ export default function Index() {
               transition={{ duration: 0.6 }}
             >
               <h2 className="text-2xl sm:text-3xl font-bold mb-3">
-                Cách sử dụng
+                {t("home.howTitle")}
               </h2>
             </motion.div>
 
             <div className="max-w-4xl mx-auto">
               <div className="grid md:grid-cols-3 gap-8">
-                {[
-                  {
-                    step: "01",
-                    title: "Import hoặc Build",
-                    desc: "Upload file deck hoặc tự xây dựng deck mới",
-                  },
-                  {
-                    step: "02",
-                    title: "Chỉnh sửa Deck",
-                    desc: "Thêm, xóa, sắp xếp bài theo ý muốn",
-                  },
-                  {
-                    step: "03",
-                    title: "Xuất & In",
-                    desc: "Tải file PDF và in proxy với kích thước chuẩn",
-                  },
-                ].map((item, i) => (
+                {STEPS.map((item, i) => (
                   <motion.div
                     key={item.step}
                     className="text-center"
@@ -391,8 +384,8 @@ export default function Index() {
                     <div className="text-5xl font-bold text-gradient mb-4">
                       {item.step}
                     </div>
-                    <h3 className="font-semibold text-lg mb-2">{item.title}</h3>
-                    <p className="text-sm text-muted-foreground">{item.desc}</p>
+                    <h3 className="font-semibold text-lg mb-2">{t(item.titleKey)}</h3>
+                    <p className="text-sm text-muted-foreground">{t(item.descKey)}</p>
                   </motion.div>
                 ))}
               </div>
@@ -411,10 +404,10 @@ export default function Index() {
               transition={{ duration: 0.6 }}
             >
               <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-                Sẵn sàng tạo proxy deck?
+                {t("home.ctaTitle")}
               </h2>
               <p className="text-muted-foreground mb-6">
-                Hoàn toàn miễn phí, không cần đăng ký tài khoản
+                {t("home.ctaDesc")}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -424,26 +417,22 @@ export default function Index() {
                   onClick={() => navigate("/deck-builder")}
                 >
                   <Zap className="h-5 w-5" />
-                  Mở Deck Builder
+                  {t("home.openBuilder")}
                 </Button>
                 <Button
                   variant="outline"
                   size="lg"
                   onClick={() => navigate("/history")}
                 >
-                  Xem lịch sử
+                  {t("home.viewHistory")}
                 </Button>
               </div>
 
               <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
-                {[
-                  "Không quảng cáo",
-                  "Miễn phí mãi mãi",
-                  "Không lưu dữ liệu",
-                ].map((text) => (
-                  <div key={text} className="flex items-center gap-1.5">
+                {PERKS.map((key) => (
+                  <div key={key} className="flex items-center gap-1.5">
                     <CheckCircle2 className="h-4 w-4 text-success" />
-                    {text}
+                    {t(key)}
                   </div>
                 ))}
               </div>
@@ -455,7 +444,7 @@ export default function Index() {
         <footer className="py-8 border-t">
           <div className="container px-4 text-center text-sm text-muted-foreground">
             <p>
-              YGO Proxy Printer • Card data từ{" "}
+              YGO Proxy Printer • {t("home.footerApi")}{" "}
               <a
                 href="https://ygoprodeck.com"
                 target="_blank"
@@ -466,7 +455,7 @@ export default function Index() {
               </a>
             </p>
             <p className="mt-2 text-xs">
-              Yu-Gi-Oh! là thương hiệu của Konami Holdings Corporation
+              {t("home.footerRights")}
             </p>
             <p className="mt-2 text-xs">From <Link to="https://github.com/YarC7">Cray</Link> With Love ❤️</p>
           </div>
@@ -475,7 +464,7 @@ export default function Index() {
         {/* Import Progress Dialog */}
         <ProgressDialog
           open={showImportProgress}
-          title="Đang import deck..."
+          title={t("deck.importingTitle")}
           description={importProgress.stage}
           progress={importProgress.current}
           total={importProgress.total}

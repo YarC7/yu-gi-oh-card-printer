@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -14,6 +15,7 @@ export function FileUpload({
   accept = ['.ydk', '.json'],
   className 
 }: FileUploadProps) {
+  const { t } = useLanguage();
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
@@ -50,10 +52,10 @@ export function FileUpload({
         </div>
         <div>
           <p className="font-medium">
-            {isDragActive ? 'Thả file ở đây...' : 'Kéo thả file hoặc click để chọn'}
+            {isDragActive ? t('upload.dropActive') : t('upload.dropIdle')}
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            Hỗ trợ file .ydk (EDOPro/YGOPRO) và .json
+            {t('upload.support')}
           </p>
         </div>
         {acceptedFiles.length > 0 && (

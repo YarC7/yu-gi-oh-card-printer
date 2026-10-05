@@ -161,8 +161,11 @@ export async function searchCards(
     includeSuggestions: true,
   });
 
-  // If we have cache results, add to history and return
-  if (cacheResult.cards.length > 0 || await isCacheReady()) {
+  // If the cache has a hit, return it. On a miss, fall through to the
+  // API — a non-empty cache may still be partial or stale (cardCount > 0
+  // does NOT mean complete), so an empty cache result must not block
+  // the API fallback or cards missing from the cache become unfindable.
+  if (cacheResult.cards.length > 0) {
     if (filters.name) {
       addToSearchHistory(filters.name);
     }

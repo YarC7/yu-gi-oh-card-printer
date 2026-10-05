@@ -20,6 +20,7 @@ import {
 } from "@/lib/deck-service";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLanguage } from "@/i18n/LanguageContext";
 
 interface GenerationHistoryItem {
   id: string;
@@ -33,7 +34,9 @@ interface GenerationHistoryItem {
 
 export default function History() {
   const { user } = useAuth();
+  const { t, lang } = useLanguage();
   const navigate = useNavigate();
+  const dateLocale = lang === "vi" ? "vi-VN" : "en-US";
   const [decks, setDecks] = useState<SavedDeckRow[]>([]);
   const [history, setHistory] = useState<GenerationHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,9 +67,9 @@ export default function History() {
     const success = await deleteDeck(deckId);
     if (success) {
       setDecks(decks.filter((d) => d.id !== deckId));
-      toast.success("Đã xóa deck");
+      toast.success(t("history.deleted"));
     } else {
-      toast.error("Có lỗi khi xóa");
+      toast.error(t("history.deleteError"));
     }
   };
 
@@ -82,16 +85,16 @@ export default function History() {
         <main className="container py-12 px-4">
           <Card className="max-w-md mx-auto text-center">
             <CardHeader>
-              <CardTitle>Đăng nhập để xem lịch sử</CardTitle>
+              <CardTitle>{t("history.loginTitle")}</CardTitle>
               <CardDescription>
-                Bạn cần đăng nhập để xem deck đã lưu và lịch sử xuất file
+                {t("history.loginDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Link to="/auth">
                 <Button>
                   <LogIn className="h-4 w-4 mr-2" />
-                  Đăng nhập
+                  {t("header.signIn")}
                 </Button>
               </Link>
             </CardContent>
@@ -105,12 +108,12 @@ export default function History() {
     <div className="min-h-screen bg-background ">
       <Header />
       <main className="container py-6 px-4">
-        <h1 className="text-2xl font-bold mb-6">Deck & Lịch sử</h1>
+        <h1 className="text-2xl font-bold mb-6">{t("history.title")}</h1>
 
         <Tabs defaultValue="decks">
           <TabsList>
-            <TabsTrigger value="decks">Deck đã lưu</TabsTrigger>
-            <TabsTrigger value="history">Lịch sử xuất</TabsTrigger>
+            <TabsTrigger value="decks">{t("history.savedDecks")}</TabsTrigger>
+            <TabsTrigger value="history">{t("history.exportHistory")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="decks" className="mt-6">
@@ -126,10 +129,10 @@ export default function History() {
             ) : decks.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Chưa có deck nào được lưu</p>
+                <p>{t("history.noDecks")}</p>
                 <Link to="/deck-builder">
                   <Button variant="outline" className="mt-4">
-                    Tạo deck mới
+                    {t("history.createNew")}
                   </Button>
                 </Link>
               </div>
@@ -143,15 +146,16 @@ export default function History() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-lg">{deck.name}</CardTitle>
                       <CardDescription>
-                        {deck.cards.reduce((sum, c) => sum + c.quantity, 0)} lá
-                        bài
+                        {t("history.cardsCount", {
+                          count: deck.cards.reduce((sum, c) => sum + c.quantity, 0),
+                        })}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">
                           {new Date(deck.updated_at).toLocaleDateString(
-                            "vi-VN"
+                            dateLocale
                           )}
                         </span>
                         <div className="flex gap-2">
@@ -160,7 +164,7 @@ export default function History() {
                             variant="outline"
                             onClick={() => handleLoadDeck(deck)}
                           >
-                            Mở
+                            {t("common.open")}
                           </Button>
                           <Button
                             size="icon"
@@ -192,7 +196,7 @@ export default function History() {
             ) : history.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Chưa có lịch sử xuất file</p>
+                <p>{t("history.noHistory")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -206,7 +210,7 @@ export default function History() {
                       <div>
                         <p className="font-medium">{item.deck_name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {item.card_count} lá bài
+                          {t("history.cardsCount", { count: item.card_count })}
                         </p>
                       </div>
                     </div>
@@ -215,7 +219,7 @@ export default function History() {
                         {item.export_format.toUpperCase()}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
-                        {new Date(item.created_at).toLocaleDateString("vi-VN")}
+                        {new Date(item.created_at).toLocaleDateString(dateLocale)}
                       </span>
                     </div>
                   </div>

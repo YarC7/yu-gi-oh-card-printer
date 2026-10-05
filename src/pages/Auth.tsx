@@ -8,9 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 export default function Auth() {
   const { user, signIn, signUp } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
@@ -31,9 +33,9 @@ export default function Auth() {
     const { error } = await signIn(email, password);
     
     if (error) {
-      toast.error(error.message || 'Đăng nhập thất bại');
+      toast.error(error.message || t('auth.signInFail'));
     } else {
-      toast.success('Đăng nhập thành công!');
+      toast.success(t('auth.signInOk'));
       navigate('/');
     }
     setLoading(false);
@@ -51,9 +53,9 @@ export default function Auth() {
     const { error } = await signUp(email, password, displayName);
     
     if (error) {
-      toast.error(error.message || 'Đăng ký thất bại');
+      toast.error(error.message || t('auth.signUpFail'));
     } else {
-      toast.success('Đăng ký thành công!');
+      toast.success(t('auth.signUpOk'));
       navigate('/');
     }
     setLoading(false);
@@ -64,13 +66,13 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">YGO Proxy Printer</CardTitle>
-          <CardDescription>Đăng nhập để lưu deck và lịch sử</CardDescription>
+          <CardDescription>{t('auth.tagline')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Đăng nhập</TabsTrigger>
-              <TabsTrigger value="signup">Đăng ký</TabsTrigger>
+              <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
+              <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
@@ -80,11 +82,11 @@ export default function Auth() {
                   <Input id="signin-email" name="email" type="email" required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signin-password">Mật khẩu</Label>
+                  <Label htmlFor="signin-password">{t('auth.password')}</Label>
                   <Input id="signin-password" name="password" type="password" required />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Đang xử lý...' : 'Đăng nhập'}
+                  {loading ? t('auth.processing') : t('auth.signIn')}
                 </Button>
               </form>
             </TabsContent>
@@ -92,7 +94,7 @@ export default function Auth() {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Tên hiển thị</Label>
+                  <Label htmlFor="signup-name">{t('auth.displayName')}</Label>
                   <Input id="signup-name" name="displayName" />
                 </div>
                 <div className="space-y-2">
@@ -100,11 +102,11 @@ export default function Auth() {
                   <Input id="signup-email" name="email" type="email" required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Mật khẩu</Label>
+                  <Label htmlFor="signup-password">{t('auth.password')}</Label>
                   <Input id="signup-password" name="password" type="password" required minLength={6} />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Đang xử lý...' : 'Đăng ký'}
+                  {loading ? t('auth.processing') : t('auth.signUp')}
                 </Button>
               </form>
             </TabsContent>

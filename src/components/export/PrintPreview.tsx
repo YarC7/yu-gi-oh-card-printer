@@ -1,6 +1,7 @@
 import { YugiohCard, ExportSettings } from '@/types/card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye } from 'lucide-react';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface PrintPreviewProps {
   cards: YugiohCard[];
@@ -8,6 +9,7 @@ interface PrintPreviewProps {
 }
 
 export function PrintPreview({ cards, settings }: PrintPreviewProps) {
+  const { t } = useLanguage();
   const cardsPerPage = 9; // 3x3
   const pages = [];
   
@@ -21,12 +23,12 @@ export function PrintPreview({ cards, settings }: PrintPreviewProps) {
         <CardHeader className="pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
             <Eye className="h-5 w-5" />
-            Xem trước trang in
+            {t('preview.title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="aspect-[210/297] bg-muted rounded-lg flex items-center justify-center text-muted-foreground">
-            Thêm bài vào deck để xem trước
+            {t('preview.empty')}
           </div>
         </CardContent>
       </Card>
@@ -38,7 +40,7 @@ export function PrintPreview({ cards, settings }: PrintPreviewProps) {
       <CardHeader className="pb-4">
         <CardTitle className="text-lg flex items-center gap-2">
           <Eye className="h-5 w-5" />
-          Xem trước trang in ({pages.length} trang)
+          {t('preview.titlePages', { count: pages.length })}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -72,7 +74,7 @@ export function PrintPreview({ cards, settings }: PrintPreviewProps) {
         ))}
         {pages.length > 2 && (
           <p className="text-center text-sm text-muted-foreground">
-            +{pages.length - 2} trang khác
+            {t('preview.morePages', { count: pages.length - 2 })}
           </p>
         )}
       </CardContent>

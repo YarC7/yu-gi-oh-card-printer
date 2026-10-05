@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/i18n/LanguageContext";
 import {
   Upload,
   Search,
@@ -20,17 +21,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import logo from "/logo.png";
-
-const navItems = [
-  { path: "/search", label: "Tìm bài", icon: Search },
-  { path: "/deck-builder", label: "Deck Builder", icon: FileText },
-  { path: "/history", label: "Lịch sử", icon: History },
-];
+import { cn } from "@/lib/utils";
 
 export function Header() {
   const { user, signOut } = useAuth();
+  const { lang, setLang, t } = useLanguage();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navItems = [
+    { path: "/search", label: t("header.searchCards"), icon: Search },
+    { path: "/deck-builder", label: t("header.deckBuilder"), icon: FileText },
+    { path: "/history", label: t("header.history"), icon: History },
+  ];
 
   return (
     <header className="sticky px-4 top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -70,6 +73,27 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Language switcher */}
+          <div
+            className="flex items-center rounded-md border border-border p-0.5"
+            role="group"
+            aria-label="Language"
+          >
+            {(["vi", "en"] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLang(l)}
+                className={cn(
+                  "rounded px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase transition-colors",
+                  lang === l
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -84,25 +108,25 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link to="/profile">
                     <User className="mr-2 h-4 w-4" />
-                    Hồ sơ
+                    {t("header.profile")}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/history">
                     <History className="mr-2 h-4 w-4" />
-                    Lịch sử
+                    {t("header.history")}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  Đăng xuất
+                  {t("header.signOut")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
             <Link to="/auth">
-              <Button size="sm">Đăng nhập</Button>
+              <Button size="sm">{t("header.signIn")}</Button>
             </Link>
           )}
 

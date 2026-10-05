@@ -204,19 +204,33 @@ export async function syncCardsToCache(): Promise<{ success: boolean; count: num
 }
 
 /**
+ * Sanitize user input embedded into a PostgREST `.or()` list.
+ * The or-list splits conditions on commas and parses parens, so raw
+ * input containing `,()` produces a 400 (e.g. "red (new)" breaks
+ * parsing). Commas become spaces (natural word separator), parens
+ * are dropped. `%`/`_` remain as ilike wildcards — harmless.
+ */
+function sanitizeOrTerm(term: string): string {
+  return term.replace(/,/g, ' ').replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Get search suggestions using FTS for better matching
  */
 export async function getSearchSuggestions(partial: string, limit: number = 5): Promise<string[]> {
   if (!partial || partial.length < 2) return [];
 
   try {
-    const searchTerm = partial.toLowerCase();
-    
-    // Use FTS for suggestions when available, fallback to ilike
+    const searchTerm = sanitizeOrTerm(partial.toLowerCase());
+    if (!searchTerm || searchTerm.length < 2) return [];
+
+    // plfts = plainto_tsquery: treats input as plain text, so multi-word
+    // input is safe. fts (= to_tsquery) 400s on spaces, e.g. "red n" ->
+    // `syntax error in tsquery`. Fallback to ilike below stays as net.
     const { data, error } = await supabase
       .from('cached_cards')
       .select('name')
-      .or(`name.fts.${searchTerm},name.ilike.%${searchTerm}%`)
+      .or(`name.plfts.${searchTerm},name.ilike.%${searchTerm}%`)
       .limit(limit * 3);
 
     if (error) {
@@ -292,9 +306,20 @@ export async function searchCardsAdvanced(
   }
 
   try {
-    let query;
+    // The FTS RPC only handles the keyword — structured filters
+    // (type/attribute/race/level/atk/def/archetype) would be silently
+    // dropped, so filtered searches must use the query builder below.
+    const hasStructuredFilters = Boolean(
+      filters.type ||
+      filters.attribute ||
+      filters.race ||
+      filters.level !== undefined ||
+      filters.atkMin !== undefined ||
+      filters.defMin !== undefined ||
+      filters.archetype
+    );
 
-    if (keyword && keyword.length >= 2) {
+    if (keyword && keyword.length >= 2 && !hasStructuredFilters) {
       // Use Full-Text Search for text queries
       const { data, error, count } = await supabase
         .rpc('search_cards_tsquery', {
@@ -306,11 +331,13 @@ export async function searchCardsAdvanced(
       if (!error && data) {
         const cards = (data as unknown[]).map((row: unknown) => rowToCard(row as CachedCardRow));
         
-        // Get total count for FTS results
+        // Get total count for FTS results. type:'plain' uses
+        // plainto_tsquery so multi-word keywords don't 400 the way the
+        // default to_tsquery parsing does.
         const { count: totalCount } = await supabase
           .from('cached_cards')
           .select('*', { count: 'exact', head: true })
-          .textSearch('name', keyword);
+          .textSearch('name', keyword, { type: 'plain', config: 'english' });
 
         let suggestions: string[] | undefined;
         if (includeSuggestions) {
@@ -351,7 +378,11 @@ async function searchCardsQueryBuilder(
     .select('*', { count: 'exact' });
 
   if (keyword && keyword.length >= 2) {
-    query = query.or(`name.ilike.%${keyword}%`);
+    // Search both name and description (mirrors the API fallback, which
+    // queries fname + desc in parallel). The or-list splits on commas and
+    // parses parens, so sanitize to avoid malformed queries (400s).
+    const safeKeyword = sanitizeOrTerm(keyword);
+    query = query.or(`name.ilike.%${safeKeyword}%,desc.ilike.%${safeKeyword}%`);
   }
 
   if (filters.type) {
@@ -379,7 +410,9 @@ async function searchCardsQueryBuilder(
   }
 
   if (filters.archetype) {
-    query = query.ilike('archetype', `%${filters.archetype}%`);
+    // Exact match: related-card browsing must return only cards with
+    // this same archetype (mirrors the API's exact `archetype` param).
+    query = query.eq('archetype', filters.archetype);
   }
 
   query = query.range(offset, offset + limit - 1);

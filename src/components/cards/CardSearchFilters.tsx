@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties } from "react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,7 +15,8 @@ import {
   Filter,
   X,
   Clock,
-  TrendingUp,
+  ArrowUpRight,
+  CornerDownLeft,
 } from "lucide-react";
 import {
   Sheet,
@@ -24,21 +26,54 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/i18n/LanguageContext";
 import { getSearchSuggestions, addToSearchHistory } from "@/lib/ygoprodeck-api";
 
-const SEARCH_HISTORY_KEY = "ygo-search-history";
+// History was written under two different keys over time:
+// the component's own "ygo-search-history" and the cache service's
+// "ygo_search_history" (via addToSearchHistory). Read both, merge,
+// dedupe — otherwise half the history never shows up.
+const HISTORY_KEYS = ["ygo-search-history", "ygo_search_history"];
 
 function getSearchHistory(): string[] {
-  try {
-    const value = localStorage.getItem(SEARCH_HISTORY_KEY);
-    if (!value) return [];
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
-  } catch {
-    return [];
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const key of HISTORY_KEYS) {
+    try {
+      const value = localStorage.getItem(key);
+      if (!value) continue;
+      const parsed = JSON.parse(value);
+      if (!Array.isArray(parsed)) continue;
+      for (const item of parsed) {
+        if (typeof item !== "string") continue;
+        const lower = item.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          merged.push(item);
+        }
+      }
+    } catch {
+      // Ignore corrupt entries
+    }
   }
+  return merged.slice(0, 10);
+}
+
+// Theme-aware match highlight (replaces the old hardcoded yellow <mark>).
+function Highlighted({ text, query }: { text: string; query: string }) {
+  const q = query.trim().toLowerCase();
+  if (!q) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(q);
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="font-semibold text-primary">
+        {text.slice(idx, idx + q.length)}
+      </span>
+      {text.slice(idx + q.length)}
+    </>
+  );
 }
 
 interface CardSearchFiltersProps {
@@ -128,6 +163,7 @@ export function CardSearchFilters({
   onSearch,
   loading,
 }: CardSearchFiltersProps) {
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [filterState, setFilterState] =
     useState<CardFilterState>(DEFAULT_FILTER_STATE);
@@ -135,8 +171,10 @@ export function CardSearchFilters({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const suggestionsRef = useRef<NodeJS.Timeout | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const onSearchRef = useRef(onSearch);
   const lastSearchRef = useRef<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -167,6 +205,52 @@ export function CardSearchFilters({
     const results = await getSearchSuggestions(query, 5);
     setSuggestions(results);
   }, []);
+
+  // Flat keyboard-navigable list: history first, then suggestions.
+  const showHistory = name.length === 0 && searchHistory.length > 0;
+  const navItems = useMemo(
+    () => [
+      ...(showHistory
+        ? searchHistory
+            .slice(0, 5)
+            .map((value) => ({ type: "history" as const, value }))
+        : []),
+      ...(name.length >= 2
+        ? suggestions.map((value) => ({ type: "suggestion" as const, value }))
+        : []),
+    ],
+    [showHistory, searchHistory, suggestions, name.length]
+  );
+
+  // Fire a search immediately instead of waiting for the debounce.
+  const commitSearch = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    const apiFilters = convertFiltersToAPI(filterState, name);
+    lastSearchRef.current = JSON.stringify({ name, filterState });
+    onSearchRef.current(apiFilters);
+    if (name) {
+      addToSearchHistory(name);
+      setSearchHistory(getSearchHistory());
+    }
+    setShowSuggestions(false);
+    setActiveIndex(-1);
+  }, [filterState, name]);
+
+  // Reset keyboard cursor whenever the list changes…
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [name, suggestions, showHistory]);
+
+  // …and keep the cursor visible while arrowing through it.
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    listRef.current
+      ?.querySelector(`[data-nav-idx="${activeIndex}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
 
   // Debounced search
   useEffect(() => {
@@ -242,7 +326,12 @@ export function CardSearchFilters({
     setName(suggestion);
     setShowSuggestions(false);
     setSuggestions([]);
+    setActiveIndex(-1);
     const apiFilters = convertFiltersToAPI(filterState, suggestion);
+    lastSearchRef.current = JSON.stringify({
+      name: suggestion,
+      filterState,
+    });
     onSearchRef.current(apiFilters);
     addToSearchHistory(suggestion);
     setSearchHistory(getSearchHistory());
@@ -252,8 +341,44 @@ export function CardSearchFilters({
   const handleHistoryClick = (term: string) => {
     setName(term);
     setShowSuggestions(false);
+    setActiveIndex(-1);
     const apiFilters = convertFiltersToAPI(filterState, term);
+    lastSearchRef.current = JSON.stringify({ name: term, filterState });
     onSearchRef.current(apiFilters);
+  };
+
+  const handleClearHistory = () => {
+    try {
+      for (const key of HISTORY_KEYS) localStorage.removeItem(key);
+    } catch {
+      // Ignore storage errors
+    }
+    setSearchHistory([]);
+    setActiveIndex(-1);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setShowSuggestions(true);
+      setActiveIndex((i) => Math.min(i + 1, navItems.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, -1));
+    } else if (e.key === "Enter") {
+      const item = navItems[activeIndex];
+      if (item) {
+        e.preventDefault();
+        if (item.type === "history") handleHistoryClick(item.value);
+        else handleSuggestionClick(item.value);
+      } else if (name.trim().length >= 2) {
+        e.preventDefault();
+        commitSearch();
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggestions(false);
+      setActiveIndex(-1);
+    }
   };
 
   const getQuickBadges = useCallback(() => {
@@ -312,13 +437,14 @@ export function CardSearchFilters({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             ref={inputRef}
-            placeholder="Tìm theo tên hoặc mô tả bài..."
+            placeholder={t("filters.searchPh")}
             value={name}
             onChange={(e) => {
               setName(e.target.value);
               setShowSuggestions(true);
             }}
             onFocus={() => setShowSuggestions(true)}
+            onKeyDown={handleInputKeyDown}
             onBlur={() => {
               // Delay to allow clicking suggestions
               setTimeout(() => setShowSuggestions(false), 200);
@@ -331,61 +457,149 @@ export function CardSearchFilters({
 
           {/* Search Suggestions Dropdown */}
           {showSuggestions &&
-            (suggestions.length > 0 ||
-              (name.length === 0 && searchHistory.length > 0)) && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg z-50 py-2">
-                {/* Show history when input is empty */}
-                {name.length === 0 && searchHistory.length > 0 && (
-                  <>
-                    <div className="px-3 py-1 text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      Lịch sử tìm kiếm
-                    </div>
-                    {searchHistory.slice(0, 5).map((term, i) => (
+            (navItems.length > 0 || name.trim().length >= 2) && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-border bg-popover/95 shadow-xl shadow-black/5 backdrop-blur-md">
+                <div
+                  ref={listRef}
+                  className="scrollbar-thin max-h-[320px] overflow-y-auto p-1.5"
+                >
+                  {/* History */}
+                  {showHistory && (
+                    <div className="flex items-center justify-between px-2.5 pb-1 pt-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        {t("filters.historyTitle")}
+                      </p>
                       <button
-                        key={`history-${i}`}
-                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent flex items-center gap-2"
+                        className="flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-muted-foreground transition-colors hover:text-destructive"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          handleHistoryClick(term);
+                          handleClearHistory();
                         }}
                       >
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        {term}
+                        <X className="h-3 w-3" strokeWidth={2} />
+                        {t("filters.clearHistory")}
                       </button>
-                    ))}
-                  </>
-                )}
+                    </div>
+                  )}
+                  {showHistory &&
+                    navItems
+                      .map((item, i) => ({ item, i }))
+                      .filter(({ item }) => item.type === "history")
+                      .map(({ item, i }) => (
+                        <div key={`history-${i}`} className="modal-rise" style={{ "--d": `${i * 30}ms` } as CSSProperties}>
+                          <button
+                            data-nav-idx={i}
+                            className={cn(
+                              "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent",
+                              activeIndex === i && "bg-accent"
+                            )}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleHistoryClick(item.value);
+                            }}
+                            onMouseEnter={() => setActiveIndex(i)}
+                          >
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                              <Clock className="h-3.5 w-3.5" strokeWidth={2} />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">
+                              {item.value}
+                            </span>
+                            <ArrowUpRight
+                              className={cn(
+                                "h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity",
+                                activeIndex === i && "opacity-100"
+                              )}
+                              strokeWidth={2}
+                            />
+                          </button>
+                        </div>
+                      ))}
 
-                {/* Show suggestions when typing */}
-                {name.length >= 2 && suggestions.length > 0 && (
-                  <>
-                    <div className="px-3 py-1 text-xs text-muted-foreground flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3" />
-                      Gợi ý
-                    </div>
-                    {suggestions.map((suggestion, i) => (
-                      <button
-                        key={i}
-                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent flex items-center gap-2"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleSuggestionClick(suggestion);
-                        }}
-                      >
-                        <Search className="h-3 w-3 text-muted-foreground" />
-                        <span
-                          dangerouslySetInnerHTML={{
-                            __html: suggestion.replace(
-                              new RegExp(`(${name})`, "gi"),
-                              '<mark class="bg-yellow-200 font-medium">$1</mark>',
-                            ),
-                          }}
-                        />
-                      </button>
-                    ))}
-                  </>
-                )}
+                  {/* Suggestions */}
+                  {name.length >= 2 && suggestions.length > 0 && (
+                    <p className="px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      {t("filters.suggestTitle")}
+                    </p>
+                  )}
+                  {name.length >= 2 &&
+                    navItems
+                      .map((item, i) => ({ item, i }))
+                      .filter(({ item }) => item.type === "suggestion")
+                      .map(({ item, i }) => (
+                        <div key={i} className="modal-rise" style={{ "--d": `${i * 30}ms` } as CSSProperties}>
+                          <button
+                            data-nav-idx={i}
+                            className={cn(
+                              "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent",
+                              activeIndex === i && "bg-accent"
+                            )}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleSuggestionClick(item.value);
+                            }}
+                            onMouseEnter={() => setActiveIndex(i)}
+                          >
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                              <Search className="h-3.5 w-3.5" strokeWidth={2} />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">
+                              <Highlighted text={item.value} query={name} />
+                            </span>
+                            <ArrowUpRight
+                              className={cn(
+                                "h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity",
+                                activeIndex === i && "opacity-100"
+                              )}
+                              strokeWidth={2}
+                            />
+                          </button>
+                        </div>
+                      ))}
+
+                  {/* Direct search for the typed query */}
+                  {name.trim().length >= 2 && (
+                    <button
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        commitSearch();
+                      }}
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
+                        <CornerDownLeft className="h-3.5 w-3.5" strokeWidth={2} />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {t("filters.searchFor", { query: name.trim() })}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Keyboard hints */}
+                <div className="hidden items-center gap-3 border-t border-border px-3 py-2 text-[11px] text-muted-foreground sm:flex">
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-border bg-muted px-1 font-mono">
+                      ↑
+                    </kbd>
+                    <kbd className="rounded border border-border bg-muted px-1 font-mono">
+                      ↓
+                    </kbd>
+                    {t("filters.hintMove")}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-border bg-muted px-1 font-mono">
+                      Enter
+                    </kbd>
+                    {t("filters.hintSelect")}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-border bg-muted px-1 font-mono">
+                      Esc
+                    </kbd>
+                    {t("filters.hintClose")}
+                  </span>
+                </div>
               </div>
             )}
         </div>
@@ -394,7 +608,7 @@ export function CardSearchFilters({
           <SheetTrigger asChild>
             <Button variant="outline" className="gap-2">
               <Filter className="h-4 w-4" />
-              Bộ lọc
+              {t("filters.filterBtn")}
               {activeFilterCount > 0 && (
                 <Badge variant="secondary" className="h-5 px-1.5 text-xs">
                   {activeFilterCount}
@@ -402,11 +616,11 @@ export function CardSearchFilters({
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
             <SheetHeader>
-              <SheetTitle>Filter Menu</SheetTitle>
+              <SheetTitle>{t("filters.title")}</SheetTitle>
             </SheetHeader>
-            <div className="mt-6">
+            <div className="mb-2 mt-6 flex min-h-0 flex-1 flex-col">
               <FilterMenu
                 filters={filterState}
                 onChange={setFilterState}
@@ -444,7 +658,7 @@ export function CardSearchFilters({
               className="h-6 text-xs"
               onClick={handleReset}
             >
-              Xoá tất cả
+              {t("filters.clearAll")}
             </Button>
           )}
         </div>

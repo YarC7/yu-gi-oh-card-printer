@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Minus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface DeckPreviewProps {
   cards: DeckCard[];
@@ -13,6 +14,7 @@ interface DeckPreviewProps {
 }
 
 export function DeckPreview({ cards, onRemoveCard, onCardClick, className }: DeckPreviewProps) {
+  const { t } = useLanguage();
   const mainDeck = cards.filter((c) => c.section === 'main');
   const extraDeck = cards.filter((c) => c.section === 'extra');
   const sideDeck = cards.filter((c) => c.section === 'side');
@@ -36,7 +38,7 @@ export function DeckPreview({ cards, onRemoveCard, onCardClick, className }: Dec
       </div>
       {sectionCards.length === 0 ? (
         <div className="py-4 text-center text-sm text-muted-foreground border border-dashed rounded-lg">
-          Chưa có bài
+          {t("grids.noCards")}
         </div>
       ) : (
         <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1">
