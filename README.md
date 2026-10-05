@@ -8,8 +8,12 @@ Read this in [English](README.md) | [Tiếng Việt](README.vi.md)
 
 - 🔍 **Advanced Search**: Search cards from YGOPRODeck database with pagination support
 - 📄 **Pagination**: Browse through thousands of results with efficient pagination (50 cards per page)
-- ⚡ **High Performance**: Optimized with lazy loading, virtualization, and 24-hour caching
-- 🎴 **Card Details**: View high-quality card images with detailed information
+- ⚡ **High Performance**: Optimized with lazy loading, virtualization, and multi-layer caching
+- 🎴 **Card Details**: Rich detail modal — full-resolution art, stats band, Link-arrow grid, Rank display for Xyz monsters, official attribute orbs, TCG/OCG ban status, sets with rarity/prices
+- 🔗 **Related Cards**: From any card's detail modal, jump to all cards sharing its archetype (exact match, custom cards excluded)
+- 👤 **Custom Card Authors**: Custom cards show their creator's profile name in the detail modal
+- 🌐 **Bilingual UI**: Full Vietnamese / English interface with one-click switcher in the header (persisted)
+- ⌨️ **Smart Suggestions**: Keyboard-navigable search suggestions (↑↓/Enter/Esc) with history and one-click history clear
 - 🏷️ **Ban Status**: Real-time TCG/OCG ban status checking
 - ➕ **Custom Cards**: Create and manage your own custom cards
 - 🃏 **Deck Builder**: Build decks with Main Deck, Extra Deck, and Side Deck sections
@@ -29,7 +33,7 @@ Read this in [English](README.md) | [Tiếng Việt](README.vi.md)
 - **API**: YGOPRODeck API with custom caching client
 - **Performance**: React.lazy, Intersection Observer, Virtual Scrolling
 - **Build Tool**: Vite with code splitting
-- **Package Manager**: npm/bun
+- **Package Manager**: npm
 - **Deployment**: GitHub Pages with CI/CD
 
 ## Installation and Setup
@@ -37,7 +41,7 @@ Read this in [English](README.md) | [Tiếng Việt](README.vi.md)
 ### System Requirements
 
 - Node.js 20+
-- npm or bun
+- npm (`package-lock.json` is the source of truth)
 
 ### Installation
 
@@ -52,11 +56,9 @@ cd yu-gi-oh-card-printer
 
 ```bash
 npm install
-# or
-bun install
 ```
 
-3. Create `.env.local` file and configure environment variables:
+3. Create `.env` file (`.env.local` also works) and configure environment variables:
 
 ```env
 VITE_SUPABASE_URL=your_supabase_url
@@ -68,16 +70,15 @@ VITE_SUPABASE_PROJECT_ID=your_supabase_project_id
 
 ```bash
 npm run dev
-# or
-bun run dev
 ```
 
-The application will run at `http://localhost:5173`
+The application will run at `http://localhost:8080`
 
 ## Usage
 
 1. **Sign up or log in** to your account for cloud storage and deck management.
-2. **Search for cards** using the advanced search panel with filters and pagination.
+2. **Pick a language** (VI/EN) from the switcher in the header — the whole UI, including toasts, follows your choice.
+3. **Search for cards** using the advanced search panel with filters and pagination.
 3. **Browse results** efficiently with pagination - view 50 cards per page from thousands of results.
 4. **Add cards to deck** by clicking on them or using drag-and-drop in deck builder.
 5. **Organize your deck** with Main Deck (up to 60 cards), Extra Deck (up to 15 cards), and Side Deck (up to 15 cards).
@@ -89,7 +90,8 @@ The application will run at `http://localhost:5173`
 - **Advanced Filters**: Filter by card type, attribute, level, ATK/DEF, archetype, and more
 - **Pagination**: Navigate through large result sets efficiently
 - **Dual Search**: Searches both card names and descriptions for comprehensive results
-- **Caching**: 24-hour API response caching for lightning-fast repeat searches
+- **Smart Caching**: Supabase cache first with automatic YGOPRODeck API fallback on cache miss, plus 24-hour in-memory API caching
+- **Keyboard-first suggestions**: Arrow-key navigation, instant search on Enter, clearable history
 
 ### Performance Optimizations
 
@@ -121,28 +123,41 @@ The application is automatically deployed to GitHub Pages when pushing to the ma
 ```
 src/
 ├── components/          # UI components
-│   ├── cards/          # Card-related components
+│   ├── cards/          # Card-related components (grid, modal, filters, suggestions)
 │   ├── deck/           # Deck building components
 │   ├── export/         # Export and print components
-│   ├── layout/         # Layout components
+│   ├── layout/         # Layout components (Header with language switcher)
 │   └── ui/             # UI components from shadcn-ui
-├── hooks/              # Custom React hooks
+├── hooks/              # Custom React hooks (useAuth, useBanList, useDeck)
+├── i18n/               # Vietnamese/English dictionaries + LanguageContext
 ├── integrations/       # External integrations (Supabase)
 ├── lib/                # Utilities and services
 ├── pages/              # Application pages
 └── types/              # TypeScript type definitions
 ```
 
+`public/` holds static assets including the official attribute orb SVGs (`DARK.svg` … `WIND.svg`) used in the card detail modal.
+
 ## API and Services
 
 - **YGOPRODeck API**: Comprehensive Yu-Gi-Oh card database with advanced search capabilities
-- **Custom API Client**: Built-in caching (24h), retry logic, rate limiting, and error handling
+- **Custom API Client**: Built-in multi-layer caching (Supabase cache + 24h in-memory), retry logic, rate limiting, in-flight deduplication, and transparent API fallback on cache miss
 - **Supabase**: Full-stack backend with real-time database, authentication, and file storage
-- **Custom Card Service**: Local storage and management for user-created cards
+- **Custom Card Service**: Local storage and management for user-created cards, with author attribution via profiles
 - **Deck Service**: Cloud synchronization and local caching for deck management
+- **i18n**: Zero-dependency Vietnamese/English system (`src/i18n/`), persisted per user
 - **Image Optimization**: Lazy loading and viewport-based image loading for performance
 
 ## Recent Updates
+
+### v2.1.0 - Search Reliability, i18n & Card Detail Redesign
+
+- 🌐 **Bilingual UI**: Complete Vietnamese/English interface with header switcher
+- 🔍 **Search reliability**: cache-miss API fallback, description search in cache, exact-match archetype search, `plfts` fix for the Supabase 400 tsquery errors
+- 🎴 **Card detail redesign**: asymmetric art-rail layout, stat band, Link-arrow grid, Rank for Xyz, official attribute orbs, TCG/OCG ban rows, sets/prices, Related Cards button
+- ⌨️ **Suggestion dropdown**: keyboard navigation, theme-aware highlight, clear-history button
+- 👤 **Author labels** on custom cards; exact-only related-card results (no custom-card pollution)
+- 🛠️ **Filter sheet**: flexible-height scroll area with pinned action bar
 
 ### v2.0.0 - Performance & UX Improvements
 
