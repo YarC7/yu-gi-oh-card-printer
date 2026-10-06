@@ -50,10 +50,10 @@ import {
   Shuffle,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import type { PanelArchetypeSearch } from "@/components/deck/CardSearchPanel";
 
 export default function DeckBuilder() {
-  const navigate = useNavigate();
   const { t } = useLanguage();
   const { user } = useAuth();
   const { getBanStatus, format, setFormat } = useBanList();
@@ -79,6 +79,9 @@ export default function DeckBuilder() {
   const [showTestHandModal, setShowTestHandModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState<YugiohCard | null>(null);
   const [drawnCards, setDrawnCards] = useState<Set<number>>(new Set()); // Track drawn card IDs
+  // Related-cards requests from the test-hand modal flow into the
+  // layout's in-page search panel instead of navigating away.
+  const [panelSearch, setPanelSearch] = useState<PanelArchetypeSearch | null>(null);
 
   // Progress state
   const [exportProgress, setExportProgress] = useState({
@@ -645,6 +648,7 @@ export default function DeckBuilder() {
           onAddCard={handleAddCard}
           onRemoveCard={removeCard}
           getTotalCardCount={getTotalCardCount}
+          externalSearch={panelSearch}
         />
       </main>
 
@@ -678,9 +682,10 @@ export default function DeckBuilder() {
         open={!!selectedCard}
         onOpenChange={(open) => !open && setSelectedCard(null)}
         onAddCard={() => {}} // Test hand modal doesn't need add card functionality
-        onViewArchetype={(archetype) =>
-          navigate("/search", { state: { archetype } })
-        }
+        onViewArchetype={(archetype) => {
+          setSelectedCard(null);
+          setPanelSearch({ archetype, nonce: Date.now() });
+        }}
       />
     </div>
   );

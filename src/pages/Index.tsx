@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring } from "framer-motion";
 import { Header } from "@/components/layout/Header";
 import { FileUpload } from "@/components/upload/FileUpload";
 import { ProgressDialog } from "@/components/ui/progress-dialog";
@@ -19,28 +19,54 @@ import {
   Zap,
   ArrowRight,
   CheckCircle2,
+  Database,
+  ShieldCheck,
+  Ruler,
 } from "lucide-react";
 
-// Featured card images from YGOProDeck - Many iconic cards
-const FEATURED_CARDS = [
-  "https://images.ygoprodeck.com/images/cards/46986414.jpg", // Dark Magician
-  "https://images.ygoprodeck.com/images/cards/89631139.jpg", // Blue-Eyes White Dragon
-  "https://images.ygoprodeck.com/images/cards/70902743.jpg", // Exodia Head
-  "https://images.ygoprodeck.com/images/cards/74677422.jpg", // Red-Eyes Black Dragon
-  "https://images.ygoprodeck.com/images/cards/6007213.jpg", // Slifer
-  "https://images.ygoprodeck.com/images/cards/10000000.jpg", // Obelisk
-  "https://images.ygoprodeck.com/images/cards/10000020.jpg", // Ra
-  "https://images.ygoprodeck.com/images/cards/27551.jpg", // Stardust Dragon
-  "https://images.ygoprodeck.com/images/cards/44508094.jpg", // Dark Magician Girl
-  "https://images.ygoprodeck.com/images/cards/38033121.jpg", // Dark Armed Dragon
-  "https://images.ygoprodeck.com/images/cards/83764719.jpg", // Monster Reborn
-  "https://images.ygoprodeck.com/images/cards/5318639.jpg", // Pot of Greed
-  "https://images.ygoprodeck.com/images/cards/53129443.jpg", // Ash Blossom
+// Marquee imagery from YGOProDeck — modern iconic bosses (IDs verified via API)
+const TOP_CARDS = [
+  "https://images.ygoprodeck.com/images/cards/86066372.jpg", // Accesscode Talker
+  "https://images.ygoprodeck.com/images/cards/4280258.jpg", // Apollousa, Bow of the Goddess
+  "https://images.ygoprodeck.com/images/cards/84815190.jpg", // Baronne de Fleur
+  "https://images.ygoprodeck.com/images/cards/90448279.jpg", // Divine Arsenal AA-ZEUS - Sky Thunder
+  "https://images.ygoprodeck.com/images/cards/37818794.jpg", // Red-Eyes Dark Dragoon
+  "https://images.ygoprodeck.com/images/cards/44146295.jpg", // Mirrorjade the Iceblade Dragon
+  "https://images.ygoprodeck.com/images/cards/69248256.jpg", // Swordsoul Grandmaster - Chixiao
+  "https://images.ygoprodeck.com/images/cards/48626373.jpg", // Kashtira Arise-Heart
+  "https://images.ygoprodeck.com/images/cards/72270339.jpg", // Diabellstar the Black Witch
+  "https://images.ygoprodeck.com/images/cards/9674034.jpg", // Snake-Eye Ash
+];
+
+const BOTTOM_CARDS = [
+  "https://images.ygoprodeck.com/images/cards/27204311.jpg", // Nibiru, the Primal Being
+  "https://images.ygoprodeck.com/images/cards/14558127.jpg", // Ash Blossom & Joyous Spring
+  "https://images.ygoprodeck.com/images/cards/23434538.jpg", // Maxx "C"
+  "https://images.ygoprodeck.com/images/cards/94145021.jpg", // Droll & Lock Bird
+  "https://images.ygoprodeck.com/images/cards/10045474.jpg", // Infinite Impermanence
+  "https://images.ygoprodeck.com/images/cards/14532163.jpg", // Lightning Storm
+  "https://images.ygoprodeck.com/images/cards/24299458.jpg", // Forbidden Droplet
+  "https://images.ygoprodeck.com/images/cards/25311006.jpg", // Triple Tactics Talent
+  "https://images.ygoprodeck.com/images/cards/15693423.jpg", // Evenly Matched
+  "https://images.ygoprodeck.com/images/cards/54693926.jpg", // Dark Ruler No More
   "https://images.ygoprodeck.com/images/cards/24224830.jpg", // Called by the Grave
   "https://images.ygoprodeck.com/images/cards/97268402.jpg", // Effect Veiler
-  "https://images.ygoprodeck.com/images/cards/65192027.jpg", // Maxx C
-  "https://images.ygoprodeck.com/images/cards/73289035.jpg", // Accesscode Talker
-  "https://images.ygoprodeck.com/images/cards/21844576.jpg", // Apollousa
+];
+
+// Real iconic archetypes for the kinetic band (proper nouns — no translation needed)
+const ARCHETYPE_BAND = [
+  "Blue-Eyes",
+  "Dark Magician",
+  "Red-Eyes",
+  "Exodia",
+  "Elemental HERO",
+  "Cyber Dragon",
+  "Blackwing",
+  "Shaddoll",
+  "Sky Striker",
+  "Swordsoul",
+  "Branded",
+  "Kashtira",
 ];
 
 const FEATURES = [
@@ -73,6 +99,72 @@ const STEPS = [
 ];
 
 const PERKS = ["home.perk1", "home.perk2", "home.perk3"];
+
+const HERO_STATS = [
+  { icon: Database, textKey: "home.f2t" },
+  { icon: Ruler, text: "5.9 × 8.6 cm" },
+  { icon: ShieldCheck, text: "TCG + OCG" },
+];
+
+/**
+ * Floating showcase card with cursor-tracked 3D tilt.
+ * Motion values live outside the React render cycle (no re-renders on move).
+ */
+function ShowcaseCard() {
+  const rotateX = useMotionValue(0);
+  const rotateY = useMotionValue(0);
+  const springX = useSpring(rotateX, { stiffness: 150, damping: 18 });
+  const springY = useSpring(rotateY, { stiffness: 150, damping: 18 });
+
+  const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    rotateX.set(-py * 16);
+    rotateY.set(px * 16);
+  };
+
+  const handleLeave = () => {
+    rotateX.set(0);
+    rotateY.set(0);
+  };
+
+  return (
+    <div
+      onMouseMove={handleMove}
+      onMouseLeave={handleLeave}
+      className="relative hidden w-[240px] shrink-0 2xl:block"
+      style={{ perspective: 1000 }}
+    >
+      <div
+        aria-hidden
+        className="absolute inset-0 -m-8 rounded-full bg-amber-400/25 blur-3xl"
+      />
+      <motion.img
+        src={TOP_CARDS[0]}
+        alt="Accesscode Talker"
+        loading="lazy"
+        style={{ rotateX: springX, rotateY: springY, transformStyle: "preserve-3d" }}
+        className="relative z-10 w-full rotate-[5deg] rounded-xl shadow-2xl"
+      />
+      <motion.img
+        src={BOTTOM_CARDS[1]}
+        alt="Ash Blossom & Joyous Spring"
+        loading="lazy"
+        animate={{ y: [0, -10, 0] }}
+        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute -bottom-10 -left-16 z-20 w-2/5 -rotate-[10deg] rounded-lg shadow-xl"
+      />
+      <div className="absolute -right-3 top-3 z-20 flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+        </span>
+        Accesscode Talker
+      </div>
+    </div>
+  );
+}
 
 export default function Index() {
   const { t } = useLanguage();
@@ -143,12 +235,12 @@ export default function Index() {
         <Header />
 
         {/* Hero Section */}
-        <section className="relative min-h-[95vh] flex items-center justify-center hero-gradient overflow-hidden">
-          {/* Infinite Scrolling Cards - Top Row */}
+        <section className="relative min-h-[100dvh] flex items-center justify-center hero-gradient overflow-hidden">
+          {/* Infinite Scrolling Cards - Top Row (boss monsters) */}
           <div className="absolute top-8 sm:top-12 left-0 right-0 overflow-hidden pointer-events-none">
             <motion.div
               className="flex gap-4 sm:gap-6"
-              animate={{ x: [0, -2400] }}
+              animate={{ x: ["0%", "-50%"] }}
               transition={{
                 x: {
                   duration: 40,
@@ -158,8 +250,8 @@ export default function Index() {
               }}
               style={{ width: "fit-content" }}
             >
-              {/* Double the cards for seamless loop */}
-              {[...FEATURED_CARDS, ...FEATURED_CARDS].map((src, i) => (
+              {/* Doubled set for a seamless -50% loop */}
+              {[...TOP_CARDS, ...TOP_CARDS].map((src, i) => (
                 <div
                   key={i}
                   className="flex-shrink-0 w-20 sm:w-24 md:w-28 opacity-30 dark:opacity-20 hover:opacity-60 transition-opacity"
@@ -175,11 +267,11 @@ export default function Index() {
             </motion.div>
           </div>
 
-          {/* Infinite Scrolling Cards - Bottom Row (Reverse) */}
+          {/* Infinite Scrolling Cards - Bottom Row, reverse (spells/traps + modern) */}
           <div className="absolute bottom-8 sm:bottom-12 left-0 right-0 overflow-hidden pointer-events-none">
             <motion.div
               className="flex gap-4 sm:gap-6"
-              animate={{ x: [-2400, 0] }}
+              animate={{ x: ["-50%", "0%"] }}
               transition={{
                 x: {
                   duration: 45,
@@ -189,10 +281,10 @@ export default function Index() {
               }}
               style={{ width: "fit-content" }}
             >
-              {/* Double the cards for seamless loop - reversed order */}
+              {/* Doubled set, reversed order, for a seamless loop */}
               {[
-                ...FEATURED_CARDS.slice().reverse(),
-                ...FEATURED_CARDS.slice().reverse(),
+                ...BOTTOM_CARDS.slice().reverse(),
+                ...BOTTOM_CARDS.slice().reverse(),
               ].map((src, i) => (
                 <div
                   key={i}
@@ -211,65 +303,90 @@ export default function Index() {
 
           {/* Hero Content */}
           <div className="container relative z-10 px-4 py-16 sm:py-20">
-            <div className="max-w-4xl mx-auto text-center">
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-              >
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
-                  <Sparkles className="h-4 w-4" />
-                  {t("home.badge")}
-                </div>
-              </motion.div>
-
-              <motion.h1
-                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-              >
-                <span className="text-gradient">YGO Proxy</span>
-                <br />
-                <span className="text-foreground">Printer</span>
-              </motion.h1>
-
-              <motion.p
-                className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-8"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-              >
-                {t("home.heroDescA")}{" "}
-                <strong className="text-foreground">{t("home.heroSize")}</strong>
-                {t("home.heroDescB")}
-              </motion.p>
-
-              <motion.div
-                className="flex flex-col sm:flex-row gap-4 justify-center"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-              >
-                <Button
-                  size="lg"
-                  className="gap-2 text-lg h-14 px-8"
-                  onClick={() => navigate("/deck-builder")}
+            <div className="mx-auto flex max-w-5xl items-center justify-center gap-10">
+              <div className="max-w-4xl text-center">
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6 }}
                 >
-                  <Zap className="h-5 w-5" />
-                  {t("home.startNow")}
-                  <ArrowRight className="h-5 w-5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="gap-2 text-lg h-14 px-8"
-                  onClick={() => navigate("/search")}
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
+                    <Sparkles className="h-4 w-4" />
+                    {t("home.badge")}
+                  </div>
+                </motion.div>
+
+                <motion.h1
+                  className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.1 }}
                 >
-                  <Search className="h-5 w-5" />
-                  {t("home.searchCards")}
-                </Button>
-              </motion.div>
+                  <span className="text-gradient">YGO Proxy</span>
+                  <br />
+                  <span className="text-foreground">Printer</span>
+                </motion.h1>
+
+                <motion.p
+                  className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-8"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                >
+                  {t("home.heroDescA")}{" "}
+                  <strong className="font-mono font-semibold text-foreground">
+                    {t("home.heroSize")}
+                  </strong>
+                  {t("home.heroDescB")}
+                </motion.p>
+
+                <motion.div
+                  className="flex flex-col sm:flex-row gap-4 justify-center"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.3 }}
+                >
+                  <Button
+                    size="lg"
+                    className="gap-2 text-lg h-14 px-8 transition-transform active:scale-[0.98]"
+                    onClick={() => navigate("/deck-builder")}
+                  >
+                    <Zap className="h-5 w-5" />
+                    {t("home.startNow")}
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="gap-2 text-lg h-14 px-8 transition-transform active:scale-[0.98]"
+                    onClick={() => navigate("/search")}
+                  >
+                    <Search className="h-5 w-5" />
+                    {t("home.searchCards")}
+                  </Button>
+                </motion.div>
+
+                <motion.div
+                  className="mt-8 flex flex-wrap justify-center gap-x-8 gap-y-3"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.45 }}
+                >
+                  {HERO_STATS.map((s) => (
+                    <div
+                      key={s.textKey ?? s.text}
+                      className="flex items-center gap-2 text-sm text-muted-foreground"
+                    >
+                      <s.icon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      <span className="font-mono tabular-nums">
+                        {s.textKey ? t(s.textKey) : s.text}
+                      </span>
+                    </div>
+                  ))}
+                </motion.div>
+              </div>
+
+              <ShowcaseCard />
             </div>
           </div>
 
@@ -284,6 +401,24 @@ export default function Index() {
             </div>
           </motion.div>
         </section>
+
+        {/* Kinetic archetype band */}
+        <div className="overflow-hidden border-y border-border bg-muted/40 py-3">
+          <div
+            className="animate-marquee flex w-max items-center gap-8 pr-8"
+            aria-hidden
+          >
+            {[...ARCHETYPE_BAND, ...ARCHETYPE_BAND].map((name, i) => (
+              <span
+                key={i}
+                className="flex items-center gap-8 whitespace-nowrap font-mono text-sm uppercase tracking-[0.2em] text-muted-foreground"
+              >
+                {name}
+                <span className="text-amber-500">•</span>
+              </span>
+            ))}
+          </div>
+        </div>
 
         {/* Upload Section */}
         <section className="py-16 sm:py-24 bg-muted/30">
@@ -334,19 +469,19 @@ export default function Index() {
               {FEATURES.map((feature, i) => (
                 <motion.div
                   key={feature.titleKey}
-                  className="glass-card rounded-xl p-6 hover:shadow-lg transition-shadow"
+                  className="glass-card rounded-xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
                   initial={{ opacity: 0, y: 40 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: i * 0.1 }}
                 >
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                    <feature.icon className="h-6 w-6 text-primary" />
+                  <div className="w-12 h-12 rounded-lg bg-amber-500/10 flex items-center justify-center mb-4">
+                    <feature.icon className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                   </div>
-                  <h3 className="font-semibold text-lg mb-2">
+                  <h3 className="font-semibold text-lg mb-2 tracking-tight">
                     {t(feature.titleKey)}
                   </h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm leading-relaxed text-muted-foreground">
                     {t(feature.descKey)}
                   </p>
                 </motion.div>
@@ -413,7 +548,7 @@ export default function Index() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button
                   size="lg"
-                  className="gap-2"
+                  className="gap-2 transition-transform active:scale-[0.98]"
                   onClick={() => navigate("/deck-builder")}
                 >
                   <Zap className="h-5 w-5" />
@@ -422,6 +557,7 @@ export default function Index() {
                 <Button
                   variant="outline"
                   size="lg"
+                  className="transition-transform active:scale-[0.98]"
                   onClick={() => navigate("/history")}
                 >
                   {t("home.viewHistory")}
@@ -431,7 +567,7 @@ export default function Index() {
               <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
                 {PERKS.map((key) => (
                   <div key={key} className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-success" />
+                    <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                     {t(key)}
                   </div>
                 ))}
@@ -457,7 +593,7 @@ export default function Index() {
             <p className="mt-2 text-xs">
               {t("home.footerRights")}
             </p>
-            <p className="mt-2 text-xs">From <Link to="https://github.com/YarC7">Cray</Link> With Love ❤️</p>
+            <p className="mt-2 text-xs">From <Link to="https://github.com/YarC7">Cray</Link> With Love</p>
           </div>
         </footer>
 

@@ -18,7 +18,7 @@ import { VirtualizedCardGrid } from "@/components/cards/VirtualizedCardGrid";
 import { searchCards } from "@/lib/ygoprodeck-api";
 import { searchCustomCards } from "@/lib/custom-cards-service";
 import { YugiohCard, CardSearchFilters as Filters } from "@/types/card";
-import { Search, Filter, RotateCcw, Loader2, X, Database, Cloud } from "lucide-react";
+import { Search, Filter, RotateCcw, Loader2, X, Database, Cloud, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/i18n/LanguageContext";
 
@@ -26,6 +26,14 @@ interface CardSearchPanelProps {
   onCardClick?: (card: YugiohCard) => void;
   onAddCard?: (card: YugiohCard) => void;
   className?: string;
+  /** External one-shot trigger: search all cards of an archetype in-panel. */
+  archetypeSearch?: PanelArchetypeSearch | null;
+}
+
+/** One-shot related-cards request from a card modal. `nonce` dedupes repeats. */
+export interface PanelArchetypeSearch {
+  archetype: string;
+  nonce: number;
 }
 
 // Convert CardFilterState to API Filters
@@ -109,11 +117,13 @@ export function CardSearchPanel({
   onCardClick,
   onAddCard,
   className,
+  archetypeSearch,
 }: CardSearchPanelProps) {
   const { t } = useLanguage();
   const [cards, setCards] = useState<YugiohCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
+  const [activeArchetype, setActiveArchetype] = useState<string | null>(null);
   const [filterState, setFilterState] =
     useState<CardFilterState>(DEFAULT_FILTER_STATE);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -149,9 +159,14 @@ export function CardSearchPanel({
     
     setLoading(true);
     try {
+      // Archetype browsing shows ONLY same-archetype cards — an undefined
+      // keyword would otherwise pull in *all* custom cards (see Search page).
+      const archetypeOnly = filters.archetype && !filters.name;
       const [apiResults, customResults] = await Promise.all([
         searchCards(filters, 1, 50, abortController.signal),
-        searchCustomCards(filters.name),
+        archetypeOnly
+          ? Promise.resolve([] as YugiohCard[])
+          : searchCustomCards(filters.name),
       ]);
       
       // Check if request was aborted before updating state
@@ -207,11 +222,30 @@ export function CardSearchPanel({
   const handleReset = useCallback(() => {
     cancelPendingRequests();
     setName("");
+    setActiveArchetype(null);
     setFilterState(DEFAULT_FILTER_STATE);
     setCards([]);
     setDataSource('api');
     lastSearchRef.current = "";
   }, [cancelPendingRequests]);
+
+  // Run an externally requested archetype search inside this panel
+  // (Related Cards from a card modal) instead of leaving the page.
+  const runArchetypeSearch = useCallback((archetype: string) => {
+    cancelPendingRequests();
+    setName("");
+    setFilterState(DEFAULT_FILTER_STATE);
+    setActiveArchetype(archetype);
+    lastSearchRef.current = "";
+    handleSearch({ archetype });
+  }, [cancelPendingRequests, handleSearch]);
+
+  const consumedNonce = useRef<number | null>(null);
+  useEffect(() => {
+    if (!archetypeSearch || consumedNonce.current === archetypeSearch.nonce) return;
+    consumedNonce.current = archetypeSearch.nonce;
+    runArchetypeSearch(archetypeSearch.archetype);
+  }, [archetypeSearch, runArchetypeSearch]);
 
   const handleDragStart = (e: React.DragEvent, card: YugiohCard) => {
     e.dataTransfer.setData("application/json", JSON.stringify(card));
@@ -228,7 +262,10 @@ export function CardSearchPanel({
             <Input
               placeholder={t("panel.placeholder")}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setActiveArchetype(null);
+              }}
               className="pl-8 pr-8 h-9"
             />
             {loading && (
@@ -258,7 +295,10 @@ export function CardSearchPanel({
               <div className="mb-2 mt-6 flex min-h-0 flex-1 flex-col">
                 <FilterMenu
                   filters={filterState}
-                  onChange={setFilterState}
+                  onChange={(fs) => {
+                    setFilterState(fs);
+                    setActiveArchetype(null);
+                  }}
                   onConfirm={() => setIsFilterOpen(false)}
                   onCancel={() => setIsFilterOpen(false)}
                   onReset={() => setFilterState(DEFAULT_FILTER_STATE)}
@@ -311,18 +351,34 @@ export function CardSearchPanel({
           </div>
         )}
 
+        {/* Active archetype (Related Cards from a modal) */}
+        {activeArchetype && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-1.5">
+              <Layers className="h-3 w-3" />
+              {t("search.archetypeBadge", { name: activeArchetype })}
+              <button
+                onClick={handleReset}
+                aria-label={t("search.clearArchetype")}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          </div>
+        )}
+
         {/* Data Source Indicator */}
         {cards.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {dataSource === 'cache' ? (
               <>
                 <Database className="h-3 w-3" />
-                <span>From cache</span>
+                <span>{t("panel.fromCache")}</span>
               </>
             ) : (
               <>
                 <Cloud className="h-3 w-3" />
-                <span>From API</span>
+                <span>{t("panel.fromApi")}</span>
               </>
             )}
           </div>

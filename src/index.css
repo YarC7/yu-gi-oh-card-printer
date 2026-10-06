@@ -193,4 +193,28 @@
       animation: none;
     }
   }
+
+  /* Infinite text marquee (GPU-safe: transform only) */
+  @keyframes marquee-x {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-marquee {
+    animation: marquee-x 36s linear infinite;
+  }
+
+  .animate-marquee-fast {
+    animation-duration: 24s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-marquee {
+      animation: none;
+    }
+  }
 }

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DeckCard, YugiohCard } from "@/types/card";
 import { DeckSection } from "./DeckSection";
-import { CardSearchPanel } from "./CardSearchPanel";
+import { CardSearchPanel, type PanelArchetypeSearch } from "./CardSearchPanel";
 import { CardDetailModal } from "@/components/cards/CardDetailModal";
 import {
   Sheet,
@@ -13,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n/LanguageContext";
 
 interface DeckBuilderLayoutProps {
@@ -21,6 +20,8 @@ interface DeckBuilderLayoutProps {
   onAddCard: (card: YugiohCard, section: "main" | "extra" | "side") => void;
   onRemoveCard: (cardId: number, section: "main" | "extra" | "side") => void;
   getTotalCardCount: () => number;
+  /** Related-cards request from outside (e.g. test-hand modal on the page). */
+  externalSearch?: PanelArchetypeSearch | null;
 }
 
 // Check if card is an Extra Deck monster (Fusion, Synchro, XYZ, Link)
@@ -39,11 +40,31 @@ export function DeckBuilderLayout({
   onAddCard,
   onRemoveCard,
   getTotalCardCount,
+  externalSearch = null,
 }: DeckBuilderLayoutProps) {
   const [selectedCard, setSelectedCard] = useState<YugiohCard | null>(null);
   const [showSearchSheet, setShowSearchSheet] = useState(false);
-  const navigate = useNavigate();
   const { t } = useLanguage();
+  // Related-cards search stays in-page: modal requests flow into the
+  // search panel(s), whether from this layout's modal or the parent page.
+  const [relatedSearch, setRelatedSearch] = useState<PanelArchetypeSearch | null>(null);
+  const effectiveSearch = externalSearch ?? relatedSearch;
+
+  // On small screens the panel lives in a bottom sheet — open it so the
+  // related results are actually visible.
+  const lastOpenedNonce = useRef<number | null>(null);
+  useEffect(() => {
+    if (!effectiveSearch || lastOpenedNonce.current === effectiveSearch.nonce) return;
+    lastOpenedNonce.current = effectiveSearch.nonce;
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      setShowSearchSheet(true);
+    }
+  }, [effectiveSearch]);
+
+  const handleViewArchetype = (archetype: string) => {
+    setSelectedCard(null);
+    setRelatedSearch({ archetype, nonce: Date.now() });
+  };
 
   const mainDeck = cards.filter((c) => c.section === "main");
   const extraDeck = cards.filter((c) => c.section === "extra");
@@ -124,6 +145,7 @@ export function DeckBuilderLayout({
           <CardSearchPanel
             onCardClick={setSelectedCard}
             onAddCard={handleQuickAdd}
+            archetypeSearch={effectiveSearch}
           />
         </div>
       </div>
@@ -148,6 +170,7 @@ export function DeckBuilderLayout({
                 onAddCard={(card) => {
                   handleQuickAdd(card);
                 }}
+                archetypeSearch={effectiveSearch}
               />
             </div>
           </SheetContent>
@@ -160,9 +183,7 @@ export function DeckBuilderLayout({
         open={!!selectedCard}
         onOpenChange={(open) => !open && setSelectedCard(null)}
         onAddCard={handleQuickAdd}
-        onViewArchetype={(archetype) =>
-          navigate("/search", { state: { archetype } })
-        }
+        onViewArchetype={handleViewArchetype}
       />
     </div>
   );
